@@ -71,7 +71,7 @@ class AgentResult:
 
 @dataclass
 class AgentOptions:
-    lang: str = "zh"
+    lang: str = "en"
     min_confidence: float = 0.6
     verify_batch: int = 8
     hyphen_batch: int = 25

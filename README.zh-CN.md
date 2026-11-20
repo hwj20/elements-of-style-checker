@@ -9,7 +9,7 @@
 
 | 文件 | 内容 |
 |---|---|
-| `report.html` | 可筛选的报告：按规则/严重程度/关键词过滤，原句里高亮问题片段，附原因和修改建议；右上角可切换中文/English、深色/浅色 |
+| `report.html` | 可筛选的报告：按规则/严重程度/关键词过滤，原句里高亮问题片段，附原因和修改建议；右上角可切换 English/中文、深色/浅色 |
 | `<原文件名>.annotated.pdf` | 原 PDF 的副本，问题处直接加了淡色高亮批注（颜色按章节区分，批注里写规则号、原因、建议，语言跟 `--lang`） |
 | `report.json` | 全部结果和每个 agent 的运行统计，方便接其他程序 |
 
@@ -37,10 +37,11 @@ python -m eos_checker ping
 4. 检查 PDF：
 
 ```powershell
-python -m eos_checker check 你的文件.pdf
+python -m eos_checker check 你的文件.pdf --lang zh
 ```
 
 结果默认写到 PDF 旁边的 `<文件名>_style_check/` 文件夹。
+说明文字默认是英文，加 `--lang zh` 让 agent 和批注 PDF 用中文。HTML 报告无论哪种都能在中英文之间切换。
 
 ## 常用命令
 
@@ -53,7 +54,7 @@ python -m eos_checker check 你的文件.pdf
 | `--pages 1-20,25` | 只查这些页 |
 | `--rules II-05,III-10,V-etc` / `--sections II,III` | 只跑指定规则 / 章节 |
 | `--include-outdated` | 也跑“现代用法已不认同”的规则（见下） |
-| `--lang en` | agent 用英文写原因、批注 PDF 用英文（默认中文）。跑完后会把所有原因翻译成另一种语言（几次模型调用），所以 HTML 报告两种语言都能切换 |
+| `--lang zh` | agent 用中文写原因、批注 PDF 用中文（默认 `en` 英文）。跑完后会把所有原因翻译成另一种语言（几次模型调用），所以 HTML 报告两种语言都能切换 |
 | `--chunk-chars 2000` | 每块字符数。小模型用小块召回更好，但调用更多 |
 | `--concurrency 16` / `--window 8` | 同时在途的请求数 / 单个 agent 并行读几块（`--window 1` = 严格按顺序） |
 | `--no-double-check` | 关掉复核（结果更多，误报也更多） |

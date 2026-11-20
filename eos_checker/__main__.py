@@ -69,7 +69,7 @@ def cmd_rules(args) -> int:
     for r in book.rules:
         if not args.all and r.status != "active":
             continue
-        print(f"{r.id:<22}{r.status:<15}{r.severity:<8}{r.kind:<28}{r.name_zh}  |  {r.title[:70]}")
+        print(f"{r.id:<22}{r.status:<15}{r.severity:<8}{r.kind:<28}{r.title[:70]}  |  {r.name_zh}")
     active = sum(1 for r in book.rules if r.status == "active")
     print(f"\n{len(book.rules)} rules: {active} active"
           + ("" if args.all else " shown (use --all to include outdated / not applicable)"))
@@ -138,7 +138,7 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--rules", help="only these rule ids, e.g. II-05,III-10,V-etc")
     c.add_argument("--sections", help="only these sections, e.g. II,III")
     c.add_argument("--include-outdated", action="store_true", help="also run rules modern usage has abandoned")
-    c.add_argument("--lang", default="zh", choices=["zh", "en"], help="language the agents write in and the annotated PDF uses (default zh); "
+    c.add_argument("--lang", default="en", choices=["en", "zh"], help="language the agents write in and the annotated PDF uses (default en); "
                         "report.html can switch between Chinese and English either way")
     c.add_argument("--min-confidence", type=float, default=0.6, help="drop model findings below this (default 0.6)")
     c.add_argument("--chunk-chars", type=int, default=2000, help="characters per chunk (default 2000, ~500 tokens; smaller = better recall with small models, more calls)")

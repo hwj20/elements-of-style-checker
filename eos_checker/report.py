@@ -84,7 +84,7 @@ def write_json(payload: dict, path: Path) -> None:
 
 
 def write_annotated_pdf(doc: Document, findings: list[Finding], book: RuleBook, src: Path, out: Path,
-                        lang: str = "zh", translations: dict[str, dict[str, str]] | None = None) -> int:
+                        lang: str = "en", translations: dict[str, dict[str, str]] | None = None) -> int:
     import pymupdf
 
     by_id = {r.id: r for r in book.rules}
@@ -131,7 +131,7 @@ def write_html(payload: dict, path: Path) -> None:
 
 
 _HTML = r"""<!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -319,8 +319,8 @@ mark {
     </div>
     <div class="head-actions">
       <div class="seg lang-seg" id="langSeg" role="group">
-        <button data-lang="zh" lang="zh-CN">中文</button>
         <button data-lang="en" lang="en">English</button>
+        <button data-lang="zh" lang="zh-CN">中文</button>
       </div>
       <button class="icon-btn" id="theme"></button>
     </div>
@@ -394,7 +394,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
 };
 let L = store.get('eos-lang');
-if (!I18N[L]) L = I18N[D.run.lang] ? D.run.lang : 'zh';
+if (!I18N[L]) L = I18N[D.run.lang] ? D.run.lang : 'en';
 const T = () => I18N[L];
 const ruleName = r => L === 'zh' ? (r.name_zh || r.title) : r.title;
 const reasonOf = f => (L === 'zh' ? f.reason_zh : f.reason_en) || f.reason || '';

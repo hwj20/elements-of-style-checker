@@ -9,7 +9,7 @@ It writes three files:
 
 | File | Contents |
 |---|---|
-| `report.html` | A filterable report: filter by rule, severity or keyword. The problem span is highlighted in its sentence, with the reason and a suggested fix. Switch between Chinese and English, and between light and dark mode, in the top-right corner |
+| `report.html` | A filterable report: filter by rule, severity or keyword. The problem span is highlighted in its sentence, with the reason and a suggested fix. Switch between English and Chinese, and between light and dark mode, in the top-right corner |
 | `<file name>.annotated.pdf` | A copy of the original PDF with pale highlight annotations on each problem (colored by chapter of the book). Each note gives the rule number, the reason and the suggestion, in the `--lang` language |
 | `report.json` | Every finding plus per-agent run statistics, for use by other programs |
 
@@ -37,11 +37,11 @@ python -m eos_checker ping
 4. Check a PDF:
 
 ```bash
-python -m eos_checker check your-file.pdf --lang en
+python -m eos_checker check your-file.pdf
 ```
 
 Results go to a `<file name>_style_check/` folder next to the PDF.
-Explanations are written in Chinese by default; `--lang en` makes the agents and the annotated PDF use English. The HTML report can switch between both languages either way.
+Explanations are in English by default; `--lang zh` makes the agents and the annotated PDF use Chinese. The HTML report can switch between both languages either way.
 
 ## Commands and options
 
@@ -54,7 +54,7 @@ Explanations are written in Chinese by default; `--lang en` makes the agents and
 | `--pages 1-20,25` | Check only these pages |
 | `--rules II-05,III-10,V-etc` / `--sections II,III` | Run only these rules / chapters |
 | `--include-outdated` | Also run rules that modern usage no longer accepts (see below) |
-| `--lang en` | The agents write reasons in English and the annotated PDF uses English (default: Chinese). After the run, every reason is translated into the other language (a few model calls), so the HTML report can show either |
+| `--lang zh` | The agents write reasons in Chinese and the annotated PDF uses Chinese (default: `en`). After the run, every reason is translated into the other language (a few model calls), so the HTML report can show either |
 | `--chunk-chars 2000` | Characters per chunk. Smaller chunks give small models better recall but need more calls |
 | `--concurrency 16` / `--window 8` | Requests in flight overall / chunks one agent reads in parallel (`--window 1` = strictly in order) |
 | `--no-double-check` | Skip the second review (more findings, more false alarms) |
@@ -82,7 +82,7 @@ PDF ──► document.py   extract the text with the position of every characte
        translate.py  translate reasons and violation types into the other language (quoted English
          │            stays as written; anything that can't be translated cleanly keeps its original text)
          ▼
-       report.py     report.json / report.html (Chinese/English) / annotated PDF
+       report.py     report.json / report.html (English/Chinese) / annotated PDF
 ```
 
 All rules live in [rules/elements_of_style_1918.yaml](rules/elements_of_style_1918.yaml); no rule is hard-coded. To change or add a rule, edit that file.
