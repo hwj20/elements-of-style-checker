@@ -1,0 +1,2190 @@
+# =============================================================================
+#  The Elements of Style (William Strunk Jr., 1918) -> machine-checkable rules
+# =============================================================================
+#  Source: Project Gutenberg eBook #37134 (public domain).
+#  One entry = one rule = one checking agent.
+#
+#  How an agent uses an entry
+#  --------------------------
+#  triggers   Regular expressions run over every sentence (case-insensitive
+#             unless case_sensitive: true).
+#               action: report  -> every match is a finding, no LLM involved.
+#               action: verify  -> every match is a *candidate*; the LLM sees the
+#                                  sentence (plus the one before it) and decides.
+#             Optional per trigger: exclude (regex; skip the sentence if it
+#             matches), first_sentence_only (only a paragraph's first sentence),
+#             message / suggestion (text shown for report hits).
+#  scan       true -> the LLM reads the WHOLE document chunk by chunk, from the
+#             first page to the last, looking only for this rule.
+#  prefilter  (scan only) a chunk is skipped unless this regex matches at least
+#             prefilter_min times in it. Saves calls; never changes the result
+#             of chunks that are read.
+#  carry_notes  (scan only) the agent keeps short notes from chunk to chunk
+#             (e.g. "this part is a plot summary in the present tense").
+#  scope      sentence | paragraph | hyphenation (line-end word divisions in a PDF)
+#  status     active          -> run by default
+#             outdated        -> faithful to 1918, but modern usage disagrees;
+#                                only run with --include-outdated
+#             not_applicable  -> cannot be judged from extracted PDF text; never run
+#  severity   high (plain error) | medium (clear breach of the rule) | low (style)
+# =============================================================================
+
+meta:
+  title: The Elements of Style (1918) - checkable rules
+  source: "William Strunk Jr., The Elements of Style, Ithaca, 1918. Project Gutenberg eBook #37134 (public domain)."
+  version: 1
+  sections:
+    II: { en: Elementary Rules of Usage, zh: 用法基本规则 }
+    III: { en: Elementary Principles of Composition, zh: 写作基本原则 }
+    IV: { en: A Few Matters of Form, zh: 格式问题 }
+    V: { en: Words and Expressions Commonly Misused, zh: 常被误用的词语 }
+    VI: { en: Spelling, zh: 拼写 }
+
+rules:
+
+# =============================================================================
+# II. ELEMENTARY RULES OF USAGE
+# =============================================================================
+
+- id: II-01
+  ref: Rule 1
+  section: II
+  title: Form the possessive singular of nouns by adding 's.
+  name_zh: 单数名词所有格一律加 's
+  severity: medium
+  status: active
+  scope: sentence
+  description: >-
+    The possessive of a SINGULAR noun takes 's whatever its final consonant
+    (Charles's, Burns's, the witch's). Pronominal possessives (hers, its, theirs,
+    yours, ours, oneself) never take an apostrophe.
+  violations:
+    - A singular noun ending in s that forms its possessive with a bare apostrophe ("Charles' friend", "Burns' poems", "the boss' office").
+    - A possessive pronoun written with an apostrophe ("it's" used to mean "belonging to it", "her's", "their's", "your's", "our's").
+  not_violations:
+    - Plural possessives, which correctly take only an apostrophe ("the boys' room", "the Joneses' house", "three years' experience").
+    - Ancient proper names in -es or -is (Achilles', Moses', Isis'), "Jesus'", and set phrases such as "for conscience' sake".
+    - '"it''s" meaning "it is" or "it has".'
+  examples:
+    - { bad: "Charles' friend", good: "Charles's friend" }
+    - { bad: "Burns' poems", good: "Burns's poems" }
+    - { bad: "The company lost it's way.", good: "The company lost its way." }
+  triggers:
+    - pattern: '\b[A-Z][a-z]*s''(?=\s|$)'
+      case_sensitive: true
+      action: verify
+    - pattern: '\b[a-z]{3,}ss''(?=\s)'
+      case_sensitive: true
+      action: verify
+    - pattern: '\b(?:her''s|hers''|their''s|theirs''|your''s|yours''|our''s|ours'')'
+      action: report
+      message: Possessive pronouns never take an apostrophe.
+      suggestion: hers / theirs / yours / ours
+    - pattern: '\bit''s\s+(?:own|way|name|place|size|value|role|purpose|shape|color|colour|turn|best|share|members|origins?|history|surface|end|head|tail|course)\b'
+      action: verify
+
+- id: II-02
+  ref: Rule 2
+  section: II
+  title: In a series of three or more terms with a single conjunction, use a comma after each term except the last.
+  name_zh: 三项以上并列，连词前也要加逗号（牛津逗号）
+  severity: medium
+  status: active
+  scope: sentence
+  punctuation_fix_types: [1]
+  think_fields:
+    terms: the parallel terms of the series joined by the final and/or/nor, separated by " | " (do not count an introductory phrase that merely ends with a comma)
+    three_or_more: true if there are three or more parallel terms, otherwise false
+  require_true: [three_or_more]
+  description: >-
+    When three or more words, phrases or clauses form a series joined by a
+    single "and", "or" or "nor", put a comma after every term except the last,
+    including the term right before the conjunction (red, white, and blue).
+  violations:
+    - A series of three or more terms with no comma before the final "and"/"or"/"nor" ("red, white and blue"; "He opened the letter, read it and made a note of its contents").
+  not_violations:
+    - Only two terms ("bread and butter"; "After dinner, we talked and laughed" - the first comma ends an introductory phrase, it does not separate series items).
+    - Names of business firms ("Brown, Shipley & Co.").
+    - Series whose items are separated by semicolons, or that already have the final comma.
+    - Fixed pairs inside a series item ("salt, bread and butter, and cheese" is fine).
+  examples:
+    - { bad: "red, white and blue", good: "red, white, and blue" }
+    - { bad: "gold, silver or copper", good: "gold, silver, or copper" }
+  triggers:
+    - pattern: '[\w'')\]]+,\s+(?!(?:and|or|nor|but|so|yet|for|which|who|that|while|when)\b)[^,;:.!?()]{1,60}?[^,;\s]\s+(?:and|or|nor)\s+\w+'
+      action: verify
+
+- id: II-03
+  ref: Rule 3
+  section: II
+  title: Enclose parenthetic expressions between commas.
+  name_zh: 插入语前后都要用逗号隔开
+  severity: medium
+  status: active
+  scope: sentence
+  punctuation_fix_types: [1, 2, 3, 4, 5]
+  scan: true
+  triggers:
+    - pattern: '\b\w+,\s+(?:Mr\.|Mrs\.|Ms\.|Dr\.|Colonel|Captain|General|Professor|Sir|Lady|Lord)?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z.]+)?\s+(?:was|is|were|are|has|had|will|would|paid|said|gave|told|came|went|made|wrote|took)\b'
+      case_sensitive: true
+      action: verify
+    - pattern: '^\W*(?:My|His|Her|Our|Their|Your|The)\s+\w+\s+(?:you|I|we|he|she|they|it)\s+[^,]{3,60},\s+(?:is|was|are|were|has|had|will|would)\b'
+      case_sensitive: true
+      action: verify
+  description: >-
+    A parenthetic expression (an interruption of the main sentence) is set off by
+    a comma before AND after it. One comma without the other is never correct.
+    Always parenthetic: the year in a date and the day of the month after a
+    weekday; the abbreviations etc. and jr.; NON-restrictive relative clauses
+    (clauses that add a remark about something already identified). Restrictive
+    clauses (which identify which thing is meant) take no commas.
+  violations:
+    - Only one of the two commas around a parenthetic expression ("Marjorie's husband, Colonel Nelson paid us a visit yesterday."; "My brother you will be pleased to hear, is now in perfect health.").
+    - When a parenthetic expression follows a conjunction, the first comma placed after the conjunction instead of before it ("He saw us coming and, unaware of our plans, greeted us" -> "He saw us coming, and unaware of our plans, greeted us").
+    - A date or address part not closed by a comma ("On April 6, 1917 the United States declared war" -> "April 6, 1917, the").
+    - A non-restrictive relative clause (about a person or thing already fully identified, e.g. by a proper name) not set off by commas ("Nether Stowey where Coleridge wrote ... is a few miles from Bridgewater").
+    - A restrictive clause wrongly set off by commas, changing the meaning ("This course is intended for Freshmen, who in the opinion of the Department are not qualified" when only some freshmen are meant).
+  not_violations:
+    - A short, slight interruption such as a single "however" with BOTH commas omitted.
+    - Restrictive clauses without commas ("The candidate who best meets these requirements will obtain the place.").
+  examples:
+    - { bad: "Marjorie's husband, Colonel Nelson paid us a visit yesterday.", good: "Marjorie's husband, Colonel Nelson, paid us a visit yesterday." }
+    - { bad: "My brother you will be pleased to hear, is now in perfect health.", good: "My brother, you will be pleased to hear, is now in perfect health." }
+    - { bad: "The audience which had at first been indifferent became more and more interested.", good: "The audience, which had at first been indifferent, became more and more interested." }
+
+- id: II-04
+  ref: Rule 4
+  section: II
+  title: Place a comma before a conjunction introducing a co-ordinate clause.
+  name_zh: 连接两个独立分句的连词前加逗号
+  severity: medium
+  status: active
+  scope: sentence
+  punctuation_fix_types: [1, 2]
+  scan: true
+  prefilter: '\b(?:and|but|or|nor|for|yet|so|while)\b'
+  description: >-
+    When "and", "but", "or", "nor", "for", "yet", "as" (= because) or "while"
+    (= and at the same time) joins two INDEPENDENT clauses (each with its own
+    subject and verb), put a comma before the conjunction. When the subject is
+    shared and written only once, a comma is still required before "but". Also,
+    "so" used to join clauses ("...; so I had difficulty") is colloquial and
+    should be avoided in writing.
+  violations:
+    - Two independent clauses joined by and/but/or/nor/for/yet without a comma before the conjunction ("The situation is perilous but there is still one chance of escape.").
+    - A shared subject with "but" and no comma ("I have heard his arguments but am still unconvinced.").
+    - '"so" used as a connective between clauses ("I had never been in the place before, so I had difficulty in finding my way.").'
+  not_violations:
+    - A shared subject with "and" where the two statements are closely related ("He has had several years' experience and is thoroughly competent.").
+    - Compound subjects, objects or verbs that are not two full clauses ("She bought bread and milk.").
+    - A dependent clause or introductory phrase right after the conjunction - the comma goes before the conjunction, none is needed after it ("The situation is perilous, but if we act promptly, there is still one chance.").
+  examples:
+    - { bad: "The early records of the city have disappeared and the story of its first years can no longer be reconstructed.", good: "The early records of the city have disappeared, and the story of its first years can no longer be reconstructed." }
+    - { bad: "I had never been in the place before; so I had difficulty in finding my way about.", good: "As I had never been in the place before, I had difficulty in finding my way about." }
+
+- id: II-05
+  ref: Rule 5
+  section: II
+  title: Do not join independent clauses by a comma.
+  name_zh: 不要用逗号连接两个独立分句（逗号粘连）
+  severity: high
+  status: active
+  scope: sentence
+  guard: ','
+  type_guards:
+    2: ',\s*(?:however|therefore|accordingly|besides|then|thus|hence|consequently|moreover|nevertheless|otherwise|still|indeed|furthermore)\b'
+  punctuation_fix_types: [1, 2]
+  scan: true
+  triggers:
+    - pattern: ',\s+(?:I|we|you|he|she|it|they|there|this|these|those|their|his|her|its|our|my)\s+[a-z]+'
+      case_sensitive: true
+      action: verify
+    - pattern: ',\s*(?:however|therefore|accordingly|besides|thus|hence|consequently|moreover|nevertheless|otherwise)\s*,?\s+(?:I|we|you|he|she|it|they|there|the|this|that|these|those|[A-Z][a-z]+)\b'
+      action: verify
+  prefilter: ','
+  think_fields:
+    before: the words before the comma in question, back to the start of the sentence
+    before_is_sentence: true only if those words could stand alone as a complete sentence (own subject and verb, and NOT starting with when, if, as, because, although, though, since, while, after, before, until, unless, once, in, on, at, with, by, according to, owing to, partly, or any other subordinating word or preposition)
+    after: the words after the comma, up to the end of that clause
+    after_is_sentence: true only if those words could stand alone as a complete sentence
+    conjunction_after_comma: true if the comma is directly followed by and, but, or, nor, for, yet or so
+  require_true: [before_is_sentence, after_is_sentence]
+  require_false: [conjunction_after_comma]
+  description: >-
+    Two grammatically complete clauses that are NOT joined by a conjunction must
+    be separated by a semicolon (or made two sentences). A conjunctive adverb
+    (however, therefore, accordingly, besides, then, thus, hence, consequently,
+    moreover, nevertheless, otherwise, still) is not a conjunction: before it a
+    semicolon is still required.
+  violations:
+    - Comma splice - two complete clauses joined only by a comma ("It is nearly half past five, we cannot reach town before dark.").
+    - A clause beginning with a conjunctive adverb joined by a comma ("The roads were impassable, therefore we turned back."; "...warned him that the nation was facing bankruptcy, therefore he summoned...").
+  not_violations:
+    - Very short clauses alike in form, not related as cause and effect ("Man proposes, God disposes."; "The gate swung apart, the bridge fell, the portcullis was drawn up.").
+    - Dialogue in a story or play.
+    - A comma before a real conjunction (and, but, or, nor, for, yet).
+    - A dependent clause plus an independent clause ("When he arrived, we left.").
+  examples:
+    - { bad: "Stevenson's romances are entertaining, they are full of exciting adventures.", good: "Stevenson's romances are entertaining; they are full of exciting adventures." }
+    - { bad: "The poets followed the English tradition, their work has a political rather than a literary value.", good: "The poets followed the English tradition; their work has a political rather than a literary value." }
+
+- id: II-06
+  ref: Rule 6
+  section: II
+  title: Do not break sentences in two.
+  name_zh: 不要把一个句子断成两截（句子碎片）
+  severity: high
+  status: active
+  scope: sentence
+  punctuation_fix_types: [1]
+  scan: true
+  description: >-
+    Do not use a period where a comma belongs. A group of words that has no main
+    clause of its own (a participial phrase, an appositive, a dependent clause)
+    and that continues the previous sentence must not be punctuated as a
+    separate sentence.
+  violations:
+    - A sentence fragment that should be joined to the previous sentence ("I met them on a Cunard liner several years ago. Coming home from Liverpool to New York."; "He was an interesting talker. A man who had traveled all over the world.").
+  not_violations:
+    - A deliberately emphatic short expression whose emphasis is warranted ("Again and again he called out. No reply.").
+    - Headings, titles, captions, list items, table cells, figure labels, references and bibliography entries.
+    - Dialogue.
+  examples:
+    - { bad: "I met them on a Cunard liner several years ago. Coming home from Liverpool to New York.", good: "I met them on a Cunard liner several years ago, coming home from Liverpool to New York." }
+    - { bad: "We were in one of the strangest places imaginable. A long and narrow passage overhung by black rocks.", good: "We were in one of the strangest places imaginable, a long and narrow passage overhung by black rocks." }
+
+- id: II-07
+  ref: Rule 7
+  section: II
+  title: A participial phrase at the beginning of a sentence must refer to the grammatical subject.
+  name_zh: 句首分词短语必须指向句子的主语（悬垂修饰）
+  severity: high
+  status: active
+  scope: sentence
+  guard: '^\W*[A-Z][^,;]{2,150},'
+  scan: true
+  triggers:
+    - pattern: '^\W*(?:[A-Z][a-z]+ing|[A-Z][a-z]+ed|Being|Having|(?:On|Upon|After|Before|While|When|In)\s+[a-z]+ing|Without|Young|Old|Pale|Tired|Compared\s+(?:with|to)|Unlike|Like|An?\s+[a-z]+(?:\s+[a-z]+){0,6}\s+of)\b[^,;.]{0,120},'
+      case_sensitive: true
+      action: verify
+  prefilter: '(?:^|[.!?]["'')\]]?\s+)[A-Z][^.!?,;]{2,120},'
+  think_fields:
+    describes_doer: true if the opening phrase is a participle, adjective or noun phrase describing someone or something; false if it is an adverbial phrase of cause, time, place or manner (owing to ..., because of ..., in 1900, after the war, according to ...)
+    doer: who or what performs the action, or has the quality, described by the opening phrase (a few words; for "Turning the corner" it is whoever turned the corner)
+    subject: the grammatical subject of the main clause after the comma (a few words)
+    same: true if doer and subject are the same person or thing, otherwise false
+  require_true: [describes_doer]
+  require_false: [same]
+  description: >-
+    An opening participial phrase, or an opening phrase made of a preposition or
+    conjunction plus participle, a noun in apposition, an adjective or an
+    adjective phrase, is understood to describe the grammatical subject of the
+    sentence that follows. If it describes someone or something else, the
+    sentence is wrong (and often ludicrous).
+    TEST: (1) Who or what does the action or has the quality in the opening
+    phrase? (2) What is the grammatical subject of the main clause - usually the
+    first noun or pronoun after the comma? If (1) and (2) are not the same, it is
+    a violation, even when the reader can guess the meaning. Things cannot walk,
+    wonder or know; a vehicle, a clock or "it" cannot be the doer of "turning".
+  violations:
+    - 'An opening participial phrase (-ing or -ed) whose doer is not the subject ("Turning the corner, the church came into view." - the church did not turn the corner; "Being in a dilapidated condition, I was able to buy the house very cheap." - the house, not I, was dilapidated; "Knowing nothing of the rules, it was with difficulty that the Dean made me understand.").'
+    - 'An opening preposition or conjunction + participle whose doer is not the subject ("On arriving in Chicago, his friends met him at the station." - he arrived, not his friends; "After finishing dinner, the dishes were washed.").'
+    - 'An opening noun phrase in apposition that does not describe the subject ("A soldier of proved valor, they entrusted him with the defence of the city.").'
+    - 'An opening adjective or adjective phrase that does not describe the subject ("Young and inexperienced, the task seemed easy to me."; "Compared with Italy, living is more expensive."; "Without a friend to counsel him, the temptation proved irresistible.").'
+  not_violations:
+    - The phrase does describe the subject ("Walking slowly down the road, he saw a woman.").
+    - Absolute constructions that carry their own subject ("The weather being fine, we set out.").
+    - Openings that are adverbial clauses or reasons, not descriptions of a person or thing ("Owing to the fact that the weather was bad, we left late."; "In 1900, the town grew.").
+    - Fixed idioms used as sentence adverbs ("Generally speaking", "Judging by the results", "Considering the cost", "Given these results").
+  examples:
+    - { bad: "Wondering irresolutely what to do next, the clock struck twelve.", good: "As I wondered irresolutely what to do next, the clock struck twelve." }
+    - { bad: "Without a friend to counsel him, the temptation proved irresistible.", good: "Without a friend to counsel him, he found the temptation irresistible." }
+    - { bad: "Turning the corner, the church came into view.", good: "As we turned the corner, the church came into view." }
+
+# =============================================================================
+# III. ELEMENTARY PRINCIPLES OF COMPOSITION
+# =============================================================================
+
+- id: III-08
+  ref: Rule 8
+  section: III
+  title: "Make the paragraph the unit of composition: one paragraph to each topic."
+  name_zh: 以段落为写作单位：一个段落一个主题
+  severity: low
+  status: active
+  scope: paragraph
+  scan: true
+  max_per_chunk: 2
+  # Single-sentence paragraphs of ordinary prose (6+ words, ending in a full stop)
+  # are found deterministically; the model only judges them.
+  triggers:
+    - pattern: '^(?=(?:\S+\s+){5,}\S)["''(]?[A-Z].*[.!?]["'')]?$'
+      max_para_sentences: 1
+      action: verify
+  verify_note: >-
+    Every ITEM is a paragraph that consists of this one sentence only. Answer true (type 1)
+    if it is ordinary prose that should not stand alone as a paragraph; answer false if it is
+    a transition, a heading, a caption, a list item, dialogue, or a reference.
+  description: >-
+    Each topic of a composition gets its own paragraph; the start of a paragraph
+    signals a new step in the subject. As a rule, single sentences should not be
+    written as paragraphs.
+  violations:
+    - A one-sentence paragraph in ordinary prose that is not a transition between parts of the argument.
+    - A paragraph that clearly treats two or more separate topics and should be divided.
+  not_violations:
+    - Headings, titles, captions, list items, block quotations, references.
+    - Sentences of transition standing alone.
+    - Dialogue (each speech is its own paragraph).
+    - Textbooks, guidebooks, manuals and other works treating many topics briefly.
+    - A short composition (a brief description, notice or summary) written as one paragraph.
+
+- id: III-09
+  ref: Rule 9
+  section: III
+  title: As a rule, begin each paragraph with a topic sentence; end it in conformity with the beginning.
+  name_zh: 段首用主题句，段尾与开头呼应
+  severity: low
+  status: active
+  scope: paragraph
+  scan: true
+  max_per_chunk: 2
+  description: >-
+    In exposition and argument the most useful paragraph (a) puts the topic
+    sentence at or near the beginning, (b) explains, establishes or develops it
+    in the following sentences, and (c) ends by emphasizing the topic or stating
+    an important consequence. Ending with a digression or an unimportant detail
+    is particularly to be avoided.
+  violations:
+    - An expository or argumentative paragraph of three or more sentences whose opening gives no idea what the paragraph is about.
+    - A paragraph that ends on a digression or an unimportant detail instead of its main point.
+  not_violations:
+    - Narrative or descriptive paragraphs (they may simply open with what the paragraph is mainly concerned with).
+    - Brief paragraphs of animated narrative, dialogue, transitions, headings, lists.
+    - Paragraphs of one or two sentences.
+
+- id: III-10
+  ref: Rule 10
+  section: III
+  title: Use the active voice.
+  name_zh: 使用主动语态
+  severity: low
+  status: active
+  scope: sentence
+  type_guards:
+    1: '\b(?:am|is|are|was|were|be|been|being)\s+(?:\w+ly\s+)?\w+\s+(?:\w+\s+){0,3}?by\b'
+    2: '\b(?:is|are|was|were|be|been|being)\s+(?:not\s+)?\w+(?:ed|en|wn)\s+to\s+(?:be|have\s+been)\b'
+    3: '\b(?:\w+(?:tion|sion|ment|ance|ence|ure|sis)|survey|search|study|review|attempt|decision|attack|visit|arrest|inquiry|repair)\b(?:\s+of\s+[\w\s'']+?)?\s+(?:was|were|is|are|will\s+be|can(?:not)?\s+be|could(?:\s+not)?\s+be|has\s+been|have\s+been)\s+(?:\w+ly\s+)?(?:made|effected|obtained|carried\s+out|conducted|performed|undertaken|done|achieved|accomplished|completed)\b'
+    4: '\bthere\s+(?:is|are|was|were)\b|\b(?:could|can|might|may)\s+be\s+(?:heard|seen|felt|noticed|observed)\b'
+  description: >-
+    The active voice is usually more direct and vigorous than the passive. The
+    rule does NOT ban the passive: it is right when the receiver of the action is
+    the topic of the paragraph, or the doer is unknown or unimportant. Flag only
+    the weak uses below.
+  violations:
+    - A passive with an expressed doer that would read better as active ("My first visit to Boston will always be remembered by me.").
+    - One passive depending directly on another ("Gold was not allowed to be exported."; "He has been proved to have been seen entering the building.").
+    - A noun expressing the whole action used as the passive subject, leaving the verb nothing to do ("A survey of this region was made in 1900." -> "This region was surveyed in 1900."; "Confirmation of these reports cannot be obtained.").
+    - Perfunctory "there is/there were ... lying", "could be heard" constructions that an active verb would make vivid ("There were a great number of dead leaves lying on the ground." -> "Dead leaves covered the ground.").
+  not_violations:
+    - A passive whose subject is the topic under discussion ("The dramatists of the Restoration are little esteemed to-day." in a paragraph about those dramatists).
+    - Passives where the doer is unknown, obvious or irrelevant ("The bridge was built in 1890."; "The samples were heated to 80 C." in a methods section).
+    - Adjectives that merely look like participles ("She was tired."; "He is interested in music.").
+  examples:
+    - { bad: "My first visit to Boston will always be remembered by me.", good: "I shall always remember my first visit to Boston." }
+    - { bad: "Mobilization of the army was rapidly effected.", good: "The army was rapidly mobilized." }
+    - { bad: "The sound of a guitar somewhere in the house could be heard.", good: "Somewhere in the house a guitar hummed sleepily." }
+  triggers:
+    - pattern: '\b(?:am|is|are|was|were|be|been|being)\s+(?:(?:not|never|also|always|often|usually|rapidly|then|now|still|already|rarely|little|much|well|being|thus|first|later|generally|widely|commonly)\s+){0,2}(?:[a-z]+ed|made|done|given|taken|seen|known|held|found|built|sent|kept|left|told|sold|put|set|shown|thought|brought|bought|caught|taught|written|spoken|chosen|driven|eaten|fallen|forgotten|forgiven|hidden|stolen|thrown|worn|borne|torn|drawn|grown|blown|sown|hung|struck|won|lost|led|fed|met|paid|said|laid|heard|felt|meant|spent|cut|hit|shut|spread|understood|undertaken|withdrawn|beaten|broken|begun|sung|sunk)\b'
+      action: verify
+      exclude: '\b(?:is|are|was|were)\s+(?:tired|interested|pleased|surprised|worried|excited|bored|scared|married|supposed|used|concerned|related|based|located|called|named|considered|expected|required|needed)\b'
+    - pattern: '\bthere\s+(?:is|are|was|were)\s+[^.!?;]{1,60}?\b[a-z]+ing\b'
+      action: verify
+    - pattern: '\b(?:could|can|might|may)\s+be\s+(?:heard|seen|felt|noticed|observed)\b'
+      action: verify
+
+- id: III-11
+  ref: Rule 11
+  section: III
+  title: Put statements in positive form.
+  name_zh: 用肯定形式陈述
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    Make definite assertions. Use "not" for denial or in antithesis, never as a
+    means of evasion. A hesitating, non-committal negative ("not very", "did not
+    remember") is weaker than a positive word for the same idea (dishonest,
+    trifling, forgot, ignored, distrusted).
+  violations:
+    - Evasive, hedged negatives ("He was not very often on time." -> "He usually came late."; "He did not think that studying Latin was much use." -> "He thought the study of Latin useless.").
+    - '"not + adjective/verb" where a single positive word exists (not honest -> dishonest, not important -> trifling, did not remember -> forgot, did not pay any attention to -> ignored, did not have much confidence in -> distrusted).'
+    - Double-negative understatement used evasively ("It is not a strange sight to catch a glimpse of deer.").
+  not_violations:
+    - Antithesis ("Not charity, but simple justice.").
+    - Plain denial of a claim ("The defendant did not sign the contract.").
+    - Strong negative words other than "not" ("never", "nothing", "no one").
+  examples:
+    - { bad: "He was not very often on time.", good: "He usually came late." }
+    - { bad: "He did not pay any attention to the warning.", good: "He ignored the warning." }
+  triggers:
+    - pattern: '\b(?:not|n''t)\s+(?:very|much|many|often|quite|really|particularly|especially|always|entirely|altogether|wholly|exactly|necessarily|too|so)\b'
+      action: verify
+    - pattern: '\b(?:not|n''t)\s+(?:(?:be|been|being)\s+)?(?:honest|important|able|possible|certain|sure|clear|happy|good|true|correct|accurate|necessary|useful|easy|difficult|significant|relevant|available|aware|common|uncommon|unusual|enough|sufficient|adequate|appropriate|consistent|interested|strange|unlike)\b'
+      action: verify
+    - pattern: '\b(?:did|does|do|could|would|will|can|should)(?:\s+not|n''t)\s+(?:remember|pay(?:\s+any)?\s+attention|have\s+(?:much|any)\s+(?:confidence|faith|trust|interest)|think|consider|know|notice|succeed|accept|agree|like|trust|believe)\b'
+      action: verify
+    - pattern: '\bnot\s+un[a-z]+'
+      action: verify
+
+- id: III-12
+  ref: Rule 12
+  section: III
+  title: Use definite, specific, concrete language.
+  name_zh: 用明确、具体、实在的语言
+  severity: low
+  status: active
+  scope: sentence
+  scan: true
+  max_per_chunk: 2
+  description: >-
+    Prefer the specific to the general, the definite to the vague, the concrete
+    to the abstract. Flag only sentences that clearly hide a simple concrete fact
+    behind abstract, general wording.
+  violations:
+    - Vague, abstract wording where a concrete statement is plainly possible ("A period of unfavorable weather set in." -> "It rained every day for a week.").
+    - Abstract noun phrases standing for simple actions ("He showed satisfaction as he took possession of his well-earned reward." -> "He grinned as he pocketed the coin."; "...is productive of great exhilaration" -> "is most exhilarating").
+  not_violations:
+    - General statements in exposition that are followed by specific instances.
+    - Technical or legal definitions that must be general.
+    - Any sentence where you cannot say what the concrete version would be. Report at most three sentences per passage.
+  examples:
+    - { bad: "There is a general agreement among those who have enjoyed the experience that surf-riding is productive of great exhilaration.", good: "All who have tried surf-riding agree that it is most exhilarating." }
+
+- id: III-13
+  ref: Rule 13
+  section: III
+  title: Omit needless words.
+  name_zh: 删去多余的词
+  severity: medium
+  status: active
+  scope: sentence
+  scan: true
+  max_per_chunk: 3
+  description: >-
+    Vigorous writing is concise. A sentence should contain no unnecessary words,
+    a paragraph no unnecessary sentences. This does not mean short sentences or no
+    detail; it means every word must tell. "The fact that" should be revised out
+    of every sentence in which it occurs.
+  violations:
+    - Stock wordy formulas ("the question as to whether" -> "whether"; "there is no doubt but that" -> "no doubt"; "used for fuel purposes" -> "used for fuel"; "he is a man who" -> "he"; "in a hasty manner" -> "hastily"; "this is a subject which" -> "this subject"; "His story is a strange one." -> "His story is strange.").
+    - Any "the fact that" ("owing to the fact that" -> "since"; "in spite of the fact that" -> "though"; "call your attention to the fact that" -> "remind you"; "the fact that he had not succeeded" -> "his failure").
+    - Superfluous "who is", "which was" ("His brother, who is a member of the same firm" -> "His brother, a member of the same firm").
+    - A single idea spread step by step over a series of sentences that could be one sentence.
+    - Phrases that repeat what the sentence already says ("past history", "in this connection ... about the past history").
+  not_violations:
+    - Detail that adds information. Repetition used deliberately for emphasis.
+  examples:
+    - { bad: "Owing to the fact that he was ill, he stayed home.", good: "Since he was ill, he stayed home." }
+    - { bad: "Trafalgar, which was Nelson's last battle", good: "Trafalgar, Nelson's last battle" }
+  triggers:
+    - pattern: '\bthe\s+question\s+as\s+to\s+whether\b'
+      action: report
+      suggestion: whether / the question whether
+    - pattern: '\bthere\s+is\s+no\s+doubt\s+but\s+that\b'
+      action: report
+      suggestion: no doubt / doubtless
+    - pattern: '\bfor\s+\w+\s+purposes\b'
+      action: verify
+    - pattern: '\b(?:he|she)\s+is\s+an?\s+(?:man|woman|person)\s+who\b'
+      action: report
+      suggestion: he / she
+    - pattern: '\bin\s+an?\s+\w+\s+(?:manner|fashion)\b'
+      action: verify
+    - pattern: '\bthis\s+is\s+an?\s+(?:subject|matter|question|problem|topic|thing)\s+(?:which|that)\b'
+      action: report
+      suggestion: this subject / this matter
+    - pattern: '\bis\s+an?\s+(?:strange|good|bad|difficult|simple|long|short|sad|happy|interesting|important|complex|hard|easy)\s+one\b'
+      action: verify
+    - pattern: '\bthe\s+fact\s+that\b'
+      action: report
+      message: Strunk - "the fact that" should be revised out of every sentence in which it occurs.
+      suggestion: since / though / that ... (recast)
+    - pattern: ',\s+(?:who|which)\s+(?:is|was|are|were)\s+(?:an?|the)\s+\w+'
+      action: verify
+
+- id: III-14
+  ref: Rule 14
+  section: III
+  title: Avoid a succession of loose sentences.
+  name_zh: 避免一连串松散句
+  severity: low
+  status: active
+  scope: paragraph
+  scan: true
+  prefilter: ',\s+(?:and|but|so|while|which|who|when|where)\b'
+  prefilter_min: 3
+  description: >-
+    A loose sentence here means two co-ordinate clauses, the second introduced by
+    a conjunction or relative (and, but, so, who, which, when, where, while - the
+    last ones in non-restrictive senses). One such sentence is fine; a series of
+    them becomes monotonous and sing-song.
+  violations:
+    - A paragraph containing three or more consecutive sentences of that two-clause pattern (see the concert-review example).
+  not_violations:
+    - One or two loose sentences among sentences of other shapes.
+  examples:
+    - bad: "The third concert of the subscription series was given last evening, and a large audience was in attendance. Mr. Edward Appleton was the soloist, and the Boston Symphony Orchestra furnished the instrumental music. The former showed himself to be an artist of the first rank, while the latter proved itself fully deserving of its high reputation."
+      good: "Recast some of them as simple sentences, sentences joined by a semicolon, or periodic sentences."
+
+- id: III-15
+  ref: Rule 15
+  section: III
+  title: Express co-ordinate ideas in similar form.
+  name_zh: 并列的意思用相同的结构表达（平行结构）
+  severity: medium
+  status: active
+  scope: sentence
+  scan: true
+  think_fields:
+    elements: the coordinate elements in the marked words, separated by " | " (e.g. "a long ceremony | very tedious"); empty if there are none
+    has_coordination: true if the sentence really joins two or more coordinate ideas (with and, or, but, while, both...and, not...but, either...or, first...second, a series)
+    same_form: true if those elements already have the same grammatical form
+  require_true: [has_coordination]
+  require_false: [same_form]
+  description: >-
+    Expressions of similar content and function should be outwardly similar
+    (parallel construction). An article or preposition that applies to every
+    member of a series is used either only before the first term or before every
+    term. Correlatives (both...and, not...but, not only...but also,
+    either...or, neither...nor, first...second...) are followed by the same
+    grammatical construction.
+  violations:
+    - Coordinate ideas in different forms ("Formerly, science was taught by the textbook method, while now the laboratory method is employed.").
+    - An article or preposition repeated for some members of a series but not others ("The French, the Italians, Spanish, and Portuguese"; "In spring, summer, or in winter").
+    - Correlatives followed by unlike constructions ("It was both a long ceremony and very tedious."; "A time not for words, but action."; "Either you must grant his request or incur his ill will."; "My objections are, first, the injustice of the measure; second, that it is unconstitutional."; "Not only had the writer entree to the titled families ..., but by royalty also.").
+  not_violations:
+    - Deliberate variation when restating a point for emphasis.
+  examples:
+    - { bad: "Formerly, science was taught by the textbook method, while now the laboratory method is employed.", good: "Formerly, science was taught by the textbook method; now it is taught by the laboratory method." }
+    - { bad: "It was both a long ceremony and very tedious.", good: "The ceremony was both long and tedious." }
+
+- id: III-16
+  ref: Rule 16
+  section: III
+  title: Keep related words together.
+  name_zh: 相关的词放在一起
+  severity: medium
+  status: active
+  scope: sentence
+  scan: true
+  max_per_chunk: 3
+  description: >-
+    Word position shows relationship: bring together words related in thought,
+    keep apart those that are not. The subject and main verb should not be split
+    by a phrase or clause that could move to the front. A relative pronoun comes
+    right after its antecedent. Modifiers go next to the word they modify.
+  violations:
+    - Subject and verb split by a movable phrase or clause ("Wordsworth, in the fifth book of The Excursion, gives a minute description of this church."; "Cast iron, when treated in a Bessemer converter, is changed into steel.").
+    - A relative pronoun far from, or ambiguous about, its antecedent ("He wrote three articles about his adventures in Spain, which were published in Harper's Magazine."; "This is a portrait of Benjamin Harrison, grandson of William Henry Harrison, who became President in 1889.").
+    - Misplaced modifiers ("He only found two mistakes." -> "He found only two mistakes."; "All the members were not present." -> "Not all the members were present.").
+    - Modifiers scattered so that a wrong relation is suggested ("Count Cassini had several long conversations during the tedious weeks of the conference with his British colleague.").
+  not_violations:
+    - Interruption only by a relative clause or an appositive ("The Duke of York, his brother, who was regarded with hostility by the Whigs").
+    - Periodic sentences where the interruption deliberately builds suspense.
+  examples:
+    - { bad: "He only found two mistakes.", good: "He found only two mistakes." }
+    - { bad: "There was a look in his eye that boded mischief.", good: "In his eye was a look that boded mischief." }
+
+- id: III-17
+  ref: Rule 17
+  section: III
+  title: In summaries, keep to one tense.
+  name_zh: 写摘要/复述时保持同一时态
+  severity: medium
+  status: active
+  scope: sentence
+  scan: true
+  carry_notes: true
+  item_context: paragraph
+  think_fields:
+    is_summary: true only if this paragraph retells the plot of a play, story, novel or poem, or the content of an essay or speech
+  require_true: [is_summary]
+  description: >-
+    ONLY applies to passages that summarize the action of a drama, poem, story or
+    novel, or report the content of an essay or speech. A drama is summarized in
+    the present tense; a story preferably in the present, possibly the past -
+    whichever is chosen must be kept throughout. Earlier action is expressed by
+    the perfect (present summary) or past perfect (past summary). A past tense in
+    indirect discourse or indirect question stays unchanged. When reporting
+    someone else's thought, do not keep inserting "he said", "the author also
+    thinks", "the speaker then went on to say".
+    METHOD: (1) Decide whether the passage retells the plot of a play, story,
+    novel or poem, or the content of an essay or speech. If not, report nothing.
+    (2) If it does, find the tense of its main narrative verbs (e.g. "learns",
+    "decides", "drowns" = present). (3) Report every main narrative verb that
+    jumps to the other tense (e.g. "killed" among present-tense verbs) unless it
+    is a perfect tense for earlier action or sits inside indirect speech.
+  violations:
+    - A summary that shifts between present and past tense for the main narrative ("Juliet drinks the potion. Romeo heard of her death and rushes to Verona.").
+    - Repeated reporting tags inside a summary ("he stated", "the speaker added", "the author also thinks").
+  not_violations:
+    - Any passage that is not a summary (ordinary narrative, argument, history, methods).
+    - Perfect / past perfect for earlier action, and past tense inside indirect discourse ("The Friar confesses that it was he who married them.").
+  examples:
+    - { bad: "Friar John fails to deliver the letter. Meanwhile Juliet drank the potion.", good: "Friar John fails to deliver the letter. Meanwhile Juliet has drunk the potion." }
+
+- id: III-18
+  ref: Rule 18
+  section: III
+  title: Place the emphatic words of a sentence at the end.
+  name_zh: 把要强调的词放在句末
+  severity: low
+  status: active
+  scope: sentence
+  scan: true
+  max_per_chunk: 2
+  description: >-
+    The word or group of words to be made most prominent - usually the logical
+    predicate, the NEW element - belongs at the end of the sentence. A sentence
+    that trails off in a minor qualifier or afterthought wastes its strongest
+    position.
+  violations:
+    - A sentence whose main point is in the middle and which ends on a weak qualifier or afterthought ("This steel is principally used for making razors, because of its hardness." when hardness is the point; "...impossible to predict the course events may take, with any degree of accuracy."; "Humanity has hardly advanced in fortitude since that time, though it has advanced in many other ways.").
+  not_violations:
+    - Sentences already ending on their key word. Short sentences. Any sentence where the end is clearly the important part. Report at most three sentences per passage.
+  examples:
+    - { bad: "Humanity has hardly advanced in fortitude since that time, though it has advanced in many other ways.", good: "Humanity, since that time, has advanced in many other ways, but it has hardly advanced in fortitude." }
+    - { bad: "This steel is principally used for making razors, because of its hardness.", good: "Because of its hardness, this steel is principally used in making razors." }
+
+# =============================================================================
+# IV. A FEW MATTERS OF FORM
+# =============================================================================
+
+- id: IV-headings
+  ref: "Ch. IV: Headings"
+  section: IV
+  title: Leave a blank line after the title or heading of a manuscript.
+  name_zh: 标题后空一行
+  severity: low
+  status: not_applicable
+  scope: sentence
+  description: Manuscript layout; cannot be judged from extracted PDF text.
+
+- id: IV-numerals
+  ref: "Ch. IV: Numerals"
+  section: IV
+  title: Do not spell out dates or other serial numbers.
+  name_zh: 日期和序号用数字，不要拼写出来
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    Write dates and other serial numbers in figures or Roman numerals (August 9,
+    1918; Rule 3; Chapter XII; 352nd Infantry), not in words.
+  violations:
+    - A date or serial number written in words ("August ninth", "the ninth of August", "Chapter Twelve", "Rule three", "nineteen hundred and eighteen" as a year).
+  not_violations:
+    - Dialogue. Counts and quantities ("three rules", "twelve chapters") - only serial numbers and dates are covered. The month "May" used as a verb.
+  examples:
+    - { bad: "on August ninth", good: "on August 9" }
+    - { bad: "see Chapter Twelve", good: "see Chapter XII" }
+  triggers:
+    - pattern: '\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twenty-\w+|thirtieth|thirty-first)\b'
+      action: verify
+    - pattern: '\b(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twenty-\w+|thirtieth|thirty-first)\s+(?:day\s+)?of\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\b'
+      action: verify
+    - pattern: '\b(?:Chapter|Rule|Section|Article|Volume|Part|Book|Act|Scene|Figure|Table|Exercise|Lesson|Unit)\s+(?:One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve|Thirteen|Fourteen|Fifteen|Sixteen|Seventeen|Eighteen|Nineteen|Twenty)\b'
+      action: verify
+    - pattern: '\b(?:in|of|since|by|until)\s+(?:eighteen|nineteen|twenty)\s+(?:hundred|(?:and\s+)?(?:ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety))\b'
+      action: verify
+
+- id: IV-parentheses
+  ref: "Ch. IV: Parentheses"
+  section: IV
+  title: Punctuate a sentence outside the parentheses exactly as if the parenthesized expression were absent.
+  name_zh: 括号外的标点按“括号不存在”来处理
+  severity: medium
+  status: active
+  scope: sentence
+  punctuation_fix_types: [1, 2]
+  description: >-
+    Punctuation outside the parentheses is what the sentence would have without
+    them. The expression inside is punctuated as if it stood alone, except that
+    its final stop is omitted unless it is a question mark or exclamation point.
+    A wholly detached parenthesized sentence has its stop inside the closing mark.
+  violations:
+    - A comma placed before the opening parenthesis ("I went to his house yesterday, (my third attempt to see him) but he had left town.").
+    - A period inside a parenthesis that sits in the middle of a sentence ("He declared (as he always does.) that he was right.").
+  not_violations:
+    - A comma after the closing parenthesis where the sentence itself needs one ("I went to his house yesterday (my third attempt to see him), but he had left town.").
+    - A question mark or exclamation point inside ("He declares (and why should we doubt his good faith?) that he is now certain of success.").
+    - Citations, numbered list markers "(1)", "(a)".
+  examples:
+    - { bad: "I went to his house yesterday, (my third attempt to see him) but he had left town.", good: "I went to his house yesterday (my third attempt to see him), but he had left town." }
+  triggers:
+    - pattern: '\w,\s*\((?![a-z0-9ivx]{1,4}\))'
+      action: verify
+    - pattern: '\.\)\s+[a-z]'
+      action: verify
+
+- id: IV-quotations
+  ref: "Ch. IV: Quotations"
+  section: IV
+  title: Introduce and punctuate quotations according to their kind.
+  name_zh: 引文按类型使用冒号、逗号和引号
+  severity: low
+  status: active
+  scope: sentence
+  punctuation_fix_types: [1, 2, 3]
+  description: >-
+    Formal quotations cited as documentary evidence are introduced by a colon and
+    enclosed in quotation marks. Quotations that are in apposition or the direct
+    object of a verb are preceded by a comma and enclosed in quotation marks.
+    Quotations introduced by "that" are indirect discourse and take NO quotation
+    marks. Proverbial expressions, familiar literary phrases, colloquialisms and
+    slang take no quotation marks.
+  violations:
+    - A quotation introduced by "that" and still enclosed in quotation marks ("Keats declares that "beauty is truth, truth beauty."").
+    - A direct quotation after says/said/writes/asks with no comma before the opening quotation mark ("Aristotle says "Art is an imitation of nature."").
+    - Proverbs, familiar phrases or slang wrapped in quotation marks ("These are "the times that try men's souls."").
+  not_violations:
+    - Scare quotes around a technical term being defined. Titles of short works in quotation marks.
+  examples:
+    - { bad: 'Keats declares that "beauty is truth, truth beauty."', good: "Keats declares that beauty is truth, truth beauty." }
+    - { bad: 'Aristotle says "Art is an imitation of nature."', good: 'Aristotle says, "Art is an imitation of nature."' }
+  triggers:
+    - pattern: '\bthat\s*[,:]?\s*"'
+      action: verify
+    - pattern: '\b(?:says|said|writes|wrote|declares|declared|remarks|remarked|asks|asked|replied|replies|exclaimed|answered)\s+"'
+      action: verify
+
+- id: IV-references
+  ref: "Ch. IV: References"
+  section: IV
+  title: Give exact references in compact form, in parentheses or footnotes, not in the body of the sentence.
+  name_zh: 引用出处用简写形式放在括号或脚注里
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    In scholarly work, give references in parentheses or footnotes rather than
+    the body of the sentence, and omit the words act, scene, line, book, volume,
+    page except when referring by only one of them (III.ii; IV.ii.14; 2 Samuel
+    i:17-27).
+  violations:
+    - A reference spelled out in the sentence body using two or more of act/scene/line/book/volume/page ("In the second scene of the third act" -> "In III.ii"; "on page 14 of volume 2" -> "(II.14)").
+  not_violations:
+    - A reference using only one unit ("see page 14"). Non-scholarly writing.
+  examples:
+    - { bad: "In the second scene of the third act", good: "In III.ii (or insert III.ii in parentheses)" }
+  triggers:
+    - pattern: '\b(?:in\s+)?the\s+(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|last)\s+(?:scene|act|line|book|volume|chapter|canto|stanza)\s+of\s+the\s+(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|last)\s+(?:scene|act|line|book|volume|chapter|canto)\b'
+      action: report
+      suggestion: Use compact form, e.g. III.ii, in parentheses.
+    - pattern: '\b(?:page|line|scene|act|volume|book)\s+\d+\s*,?\s+(?:of\s+)?(?:page|line|scene|act|volume|book)\s+\d+'
+      action: verify
+
+- id: IV-syllabication
+  ref: "Ch. IV: Syllabication"
+  section: IV
+  title: Divide words at line-ends according to their formation and pronunciation.
+  name_zh: 行末断词要按构词和读音分音节
+  severity: low
+  status: active
+  scope: hyphenation
+  description: >-
+    When a word is divided at the end of a line: never cut off a single letter,
+    nor only two letters of a long word. Divide (a) according to formation
+    (know-ledge not knowl-edge; Shake-speare not Shakes-peare; de-scribe not
+    des-cribe; atmo-sphere not atmos-phere); (b) "on the vowel" (edi-ble not
+    ed-ible; propo-sition; ordi-nary; regu-lar; presi-dent); (c) between double
+    letters unless they end the simple form of the word (Cincin-nati, refer-ring,
+    but tell-ing); (d) not before a final -ed whose e is silent (treat-ed is fine,
+    roam-ed and nam-ed are not). Consonant groups: for-tune, pic-ture, sin-gle,
+    illus-tration, indus-try, instruc-tion, sug-ges-tion.
+  violations:
+    - A line-end division that breaks any of the principles above.
+  not_violations:
+    - Hyphens that belong to a compound word ("well-known", "self-evident") split at a line end.
+    - Divisions that follow the principles above.
+
+# =============================================================================
+# V. WORDS AND EXPRESSIONS COMMONLY MISUSED  (one agent per headword)
+# =============================================================================
+
+- id: V-all-right
+  ref: "Ch. V: All right"
+  section: V
+  title: All right - always two words; in writing use only as a detached "Agreed" / "Go ahead".
+  name_zh: All right 写成两个词，书面语中少用
+  severity: medium
+  status: active
+  scope: sentence
+  description: >-
+    "All right" is idiomatic in familiar speech only as a detached phrase meaning
+    "Agreed" or "Go ahead"; in other uses it is better avoided in writing. It is
+    always written as two words.
+  violations:
+    - The spelling "alright".
+    - '"all right" used in writing to mean satisfactory, acceptable, safe ("The results were all right.").'
+  not_violations:
+    - Dialogue. "All right." standing alone as agreement.
+  triggers:
+    - pattern: '\balright\b'
+      action: report
+      message: Always written as two words.
+      suggestion: all right
+    - pattern: '\ball\s+right\b'
+      action: verify
+
+- id: V-as-good-or-better
+  ref: "Ch. V: As good or better than"
+  section: V
+  title: '"As good or better than" - rearrange the sentence.'
+  name_zh: as good or better than 句式需改写
+  severity: medium
+  status: active
+  scope: sentence
+  description: >-
+    Expressions of the type "as good or better than" leave the first comparison
+    unfinished ("as good ... than"). Rearrange: "as good as his, or better".
+  violations:
+    - '"as X or Y-er than" / "as X if not Y-er than" ("My opinion is as good or better than his.").'
+  examples:
+    - { bad: "My opinion is as good or better than his.", good: "My opinion is as good as his, or better." }
+  triggers:
+    - pattern: '\bas\s+\w+\s+(?:or|if\s+not)\s+(?:\w+er|more\s+\w+|better|worse|less\s+\w+)\s+than\b'
+      action: report
+      suggestion: as good as X, or better
+
+- id: V-as-to-whether
+  ref: "Ch. V: As to whether"
+  section: V
+  title: '"As to whether" - "whether" is sufficient.'
+  name_zh: as to whether → whether
+  severity: medium
+  status: active
+  scope: sentence
+  description: '"Whether" is sufficient; "as to" adds nothing (see Rule 13).'
+  violations:
+    - Any "as to whether".
+  triggers:
+    - pattern: '\bas\s+to\s+whether\b'
+      action: report
+      suggestion: whether
+
+- id: V-bid
+  ref: "Ch. V: Bid"
+  section: V
+  title: '"Bid" takes the infinitive without "to"; its past tense meaning "ordered" is "bade".'
+  name_zh: bid 后接不带 to 的不定式，过去式用 bade
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    In the sense "command" or "invite", bid takes the bare infinitive (bid him go,
+    not bid him to go), and its past tense is bade.
+  violations:
+    - '"bid someone to do" ("She bid him to leave.").'
+    - '"bidded" or "bid" as past tense in the sense "ordered".'
+  not_violations:
+    - Bidding at an auction or in a tender ("They bid $500"; "bid for the contract").
+  triggers:
+    - pattern: '\bbid(?:s|ding)?\s+(?:\w+\s+){1,2}to\s+[a-z]+'
+      action: verify
+    - pattern: '\bbidded\b'
+      action: verify
+
+- id: V-but
+  ref: "Ch. V: But / Help"
+  section: V
+  title: '"But" is unnecessary after "doubt" and "help"; avoid a "but" that answers another "but".'
+  name_zh: doubt/help 后不要多加 but；避免 but 接 but
+  severity: medium
+  status: active
+  scope: sentence
+  description: >-
+    "I have no doubt but that" -> "I have no doubt that"; "could not help see but
+    that" -> "could not help seeing that". Following one "but" with another (a
+    contrast to a contrast, a reservation to a reservation) is awkward; rearrange.
+  violations:
+    - '"no doubt but (that)", "cannot help but", "could not help ... but that".'
+    - A sentence beginning with "But" right after a sentence that itself turns on "but" (contrast to a contrast).
+  not_violations:
+    - A sentence-initial "But" after a sentence that contains no contrast.
+  examples:
+    - { bad: "America had vast resources, but she seemed almost wholly unprepared for war. But within a year she had created an army of four million men.", good: "America seemed almost wholly unprepared for war, but she had vast resources. Within a year she had created an army of four million men." }
+  triggers:
+    - pattern: '\b(?:no|little|not\s+(?:any|the\s+least))\s+doubt\s+but\b'
+      action: report
+      suggestion: no doubt that
+    - pattern: '\b(?:cannot|can''t|could\s+not|couldn''t|can\s+not)\s+help\s+(?:but\b|\w+\s+but\s+that\b)'
+      action: report
+      suggestion: cannot help (do)ing
+    - pattern: '^\W*But\b'
+      case_sensitive: true
+      action: verify
+
+- id: V-can
+  ref: "Ch. V: Can"
+  section: V
+  title: '"Can" means "is able"; do not use it for "may".'
+  name_zh: can 表示能力，不要代替 may（许可）
+  severity: low
+  status: active
+  scope: sentence
+  description: Can means am/is/are able. Permission is asked or given with "may".
+  violations:
+    - '"can" asking or granting permission ("Can I leave early?" -> "May I leave early?"; "You can go now." meaning permission).'
+  not_violations:
+    - '"can" expressing ability or possibility ("Can you lift this?"; "Errors can occur.").'
+  triggers:
+    - pattern: '\bcan\s+(?:I|we)\s+(?:go|come|have|ask|borrow|use|leave|see|take|join|sit|get|bring|stay)\b'
+      action: verify
+    - pattern: '\byou\s+can\s+(?:go|come|have|leave|take|use|borrow|stay|sit)\b'
+      action: verify
+
+- id: V-case
+  ref: "Ch. V: Case"
+  section: V
+  title: '"Case" (instance; state of affairs) is usually unnecessary.'
+  name_zh: case 多半是冗词
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    In the senses "instance of a thing's occurring" and "usual state of affairs",
+    "case" is usually unnecessary; recast the sentence.
+  violations:
+    - '"In many cases, the rooms were poorly ventilated." -> "Many of the rooms were poorly ventilated."'
+    - '"It has rarely been the case that any mistake has been made." -> "Few mistakes have been made."'
+  not_violations:
+    - Legal cases, medical cases, grammatical case, a physical case (box), "in case" meaning "if".
+  triggers:
+    - pattern: '\bin\s+(?:many|most|some|all|several|these|those|such|this|that|each|every|either|no|the\s+majority\s+of)\s+(?:of\s+the\s+)?cases?\b'
+      action: verify
+    - pattern: '\b(?:is|was|has\s+been|have\s+been|be|are|were)\s+(?:not\s+|always\s+|rarely\s+|often\s+|usually\s+|generally\s+)?the\s+case\b'
+      action: verify
+    - pattern: '\bin\s+(?:the\s+)?case\s+of\b'
+      action: verify
+
+- id: V-certainly
+  ref: "Ch. V: Certainly"
+  section: V
+  title: '"Certainly" - do not use it to intensify every statement.'
+  name_zh: 不要滥用 certainly 加强语气
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    Used indiscriminately by some writers, much as others use "very", to intensify
+    any and every statement - a mannerism bad in speech and worse in writing.
+  violations:
+    - '"certainly" used as an empty intensifier ("It was certainly a good meeting.").'
+  not_violations:
+    - '"certainly" expressing real certainty or concession ("It is certainly true that X; but ...", "Certainly not.").'
+  triggers:
+    - pattern: '\bcertainly\b'
+      action: verify
+
+- id: V-character
+  ref: "Ch. V: Character"
+  section: V
+  title: '"Character" is often simply redundant.'
+  name_zh: of a ... character 多为冗词
+  severity: medium
+  status: active
+  scope: sentence
+  description: Often used from mere habit of wordiness ("acts of a hostile character" -> "hostile acts").
+  violations:
+    - '"of a(n) ADJ character" where the adjective alone would do ("Earnings ... are of such a favorable character as to ...").'
+  not_violations:
+    - Characters in fiction; moral character; letters/symbols.
+  examples:
+    - { bad: "Acts of a hostile character", good: "Hostile acts" }
+  triggers:
+    - pattern: '\bof\s+(?:an?|such\s+an?|the\s+same)\s+(?:\w+\s+){0,2}character\b'
+      action: verify
+
+- id: V-claim
+  ref: "Ch. V: Claim"
+  section: V
+  title: '"Claim" means "lay claim to"; not a substitute for declare, maintain, charge.'
+  name_zh: claim 不要用作 declare/maintain 的替代词
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    With a noun object, claim means "lay claim to". It may take a clause only if
+    that sense is clearly involved ("He claimed that he was the sole surviving
+    heir" - though "claimed to be" is better). Not a substitute for declare,
+    maintain, or charge.
+  violations:
+    - '"claim that" used merely for "say/declare/maintain/charge" ("The author claims that the plan will fail.").'
+  not_violations:
+    - Laying claim to a right, title or property ("He claimed the estate.").
+  triggers:
+    - pattern: '\bclaim(?:s|ed|ing)?\s+that\b'
+      action: verify
+    - pattern: '\bclaim(?:s|ed|ing)?\s+(?:he|she|they|it|we|I)\s+(?:is|was|are|were|had|has|have|did|does|would|will)\b'
+      action: verify
+
+- id: V-clever
+  ref: "Ch. V: Clever"
+  section: V
+  title: '"Clever" is overused; restrict it to ingenuity in small matters.'
+  name_zh: clever 只用于小事上的机巧
+  severity: low
+  status: active
+  scope: sentence
+  description: Greatly overused; best restricted to ingenuity displayed in small matters.
+  violations:
+    - '"clever" applied to major intellectual or artistic achievement, or as general praise ("a clever novel", "a clever scientist").'
+  not_violations:
+    - Ingenuity in small matters ("a clever trick", "a clever gadget").
+  triggers:
+    - pattern: '\bclever(?:ly|ness|est|er)?\b'
+      action: verify
+
+- id: V-compare
+  ref: "Ch. V: Compare"
+  section: V
+  title: '"Compare to" points out resemblances; "compare with" points out differences.'
+  name_zh: compare to（比喻相似）与 compare with（比较异同）
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    To compare TO is to point out or imply resemblance between things of a
+    different order (life compared to a pilgrimage). To compare WITH is mainly to
+    point out differences between things of the same order (Congress compared
+    with the British Parliament).
+  violations:
+    - '"compared to" used for an item-by-item comparison of things of the same kind ("Sales this year compared to last year").'
+    - '"compared with" used for a figurative likeness ("He compared life with a voyage").'
+  triggers:
+    - pattern: '\bcompar(?:e|es|ed|ing)\s+(?:\w+\s+){0,6}?(?:to|with)\b'
+      action: verify
+
+- id: V-consider-as
+  ref: "Ch. V: Consider"
+  section: V
+  title: '"Consider" meaning "believe to be" is not followed by "as".'
+  name_zh: consider（认为）后不加 as
+  severity: medium
+  status: active
+  scope: sentence
+  description: >-
+    "I consider him thoroughly competent." Use "consider ... as" only when consider
+    means "examine/discuss" ("The lecturer considered Cromwell first as soldier
+    and second as administrator").
+  violations:
+    - '"consider X as Y" meaning "believe X to be Y" ("We consider him as the best candidate.").'
+  triggers:
+    - pattern: '\bconsider(?:s|ed|ing)?\s+(?:\w+\s+){1,4}?as\s+(?:an?\s+|the\s+)?\w+'
+      action: verify
+
+- id: V-data
+  ref: "Ch. V: Data"
+  section: V
+  title: '"Data" is a plural, like phenomena and strata.'
+  name_zh: data 是复数
+  severity: low
+  status: active
+  modern_note: Many modern style guides accept "data" as a mass noun; APA and most scientific journals still treat it as plural.
+  scope: sentence
+  description: '"Data" is plural: "These data were tabulated."'
+  violations:
+    - '"data" with a singular verb or determiner ("the data shows", "this data").'
+  triggers:
+    - pattern: '\bdata\s+(?:is|was|has|shows|suggests|indicates|reveals|demonstrates|proves|seems|appears)\b'
+      action: report
+      suggestion: data are / data show
+    - pattern: '\b(?:this|that|much)\s+data\b'
+      action: report
+      suggestion: these data / those data / many data
+
+- id: V-dependable
+  ref: "Ch. V: Dependable"
+  section: V
+  title: '"Dependable" is a needless substitute for reliable, trustworthy.'
+  name_zh: dependable → reliable / trustworthy
+  severity: low
+  status: outdated
+  modern_note: '"Dependable" is now standard English.'
+  scope: sentence
+  description: A needless substitute for reliable, trustworthy.
+  triggers:
+    - pattern: '\bdependab(?:le|ility|ly)\b'
+      action: report
+      suggestion: reliable / trustworthy
+
+- id: V-different-than
+  ref: "Ch. V: Different than"
+  section: V
+  title: '"Different than" is not permissible.'
+  name_zh: different than → different from
+  severity: medium
+  status: active
+  scope: sentence
+  description: Substitute "different from", "other than", or "unlike".
+  triggers:
+    - pattern: '\bdifferent(?:ly)?\s+than\b'
+      action: report
+      suggestion: different from / other than / unlike
+
+- id: V-divided-into
+  ref: "Ch. V: Divided into"
+  section: V
+  title: '"Divided into" is not to be misused for "composed of".'
+  name_zh: divided into 不要误作 composed of
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    Something is divided into parts only if it is naturally cut up that way;
+    plays are divided into acts, but poems are composed of stanzas.
+  violations:
+    - '"divided into" for a whole that is simply made up of its parts ("The poem is divided into twelve stanzas.").'
+  triggers:
+    - pattern: '\bdivided\s+into\b'
+      action: verify
+
+- id: V-dont
+  ref: "Ch. V: Don't"
+  section: V
+  title: '"Don''t" is the contraction of "do not"; "does not" contracts to "doesn''t".'
+  name_zh: 第三人称单数用 doesn't，不用 don't
+  severity: high
+  status: active
+  scope: sentence
+  description: '"Don''t" = do not. With a third-person singular subject use "doesn''t".'
+  violations:
+    - '"he/she/it/this/that/one don''t".'
+  triggers:
+    - pattern: '\b(?:he|she|it|this|that|one)\s+don''t\b'
+      action: report
+      suggestion: doesn't
+    - pattern: '\b(?:who|which|everybody|everyone|somebody|someone|nobody|anybody|anyone|each)\s+don''t\b'
+      action: verify
+
+- id: V-due-to
+  ref: "Ch. V: Due to"
+  section: V
+  title: '"Due to" is incorrectly used for "through", "because of", "owing to" in adverbial phrases.'
+  name_zh: due to 不能作状语表示“因为”
+  severity: low
+  status: active
+  modern_note: Adverbial "due to" is now common, but careful editors still prefer "because of" / "owing to".
+  scope: sentence
+  description: >-
+    Correct only when related as predicate or modifier to a particular noun
+    ("This invention is due to Edison"; "losses due to preventable fires").
+    Incorrect in an adverbial phrase modifying a verb or a whole clause.
+  violations:
+    - '"He lost the first game, due to carelessness." -> "because of carelessness".'
+    - '"Due to the rain, the match was cancelled." -> "Because of the rain".'
+  not_violations:
+    - '"X is due to Y" (predicate after a form of be). "losses due to fire" (modifies a noun).'
+  triggers:
+    - pattern: '\bdue\s+to\b'
+      action: verify
+      exclude: '\bdue\s+to\s+the\s+fact\s+that\b'
+
+- id: V-folk
+  ref: "Ch. V: Folk"
+  section: V
+  title: '"Folk" is a collective noun; use the singular form only.'
+  name_zh: folk 用单数形式，不写 folks
+  severity: low
+  status: active
+  scope: sentence
+  description: A collective noun, equivalent to "people". Use the singular form only.
+  triggers:
+    - pattern: '\bfolks\b'
+      action: report
+      suggestion: folk / people
+
+- id: V-effect
+  ref: "Ch. V: Effect"
+  section: V
+  title: '"Effect" (noun = result; verb = bring about) - not "affect"; and not a vague word for artistic impressions.'
+  name_zh: effect / affect 别混用，也别用 effect 含糊描述艺术效果
+  severity: medium
+  status: active
+  scope: sentence
+  description: >-
+    As a noun "effect" means result; as a verb it means to bring about or
+    accomplish. "Affect" means to influence. As a noun "effect" is often loosely
+    used in perfunctory writing about fashions, music, painting and other arts
+    ("an Oriental effect", "very delicate effects", "a charming effect was
+    produced by"); a writer with a definite meaning will not take refuge in such
+    vagueness.
+  violations:
+    - '"affect" used as a noun meaning result ("It had a big affect on sales").'
+    - '"effect" used as a verb meaning influence ("The weather effected his mood").'
+    - Vague artistic "effects" ("subtle effects", "a charming effect was produced by the lighting").
+  not_violations:
+    - '"affect" as a psychology noun (emotion). "effect a change / effect a cure" (= bring about).'
+  triggers:
+    - pattern: '\b(?:an|the|no|any|positive|negative|adverse|significant|profound|big|great|little|lasting|major|minor|side)\s+affects?\b'
+      action: verify
+    - pattern: '\beffect(?:s|ed|ing)?\s+(?:the|his|her|their|our|its|my|your|them|him|me|us|it)\b'
+      action: verify
+    - pattern: '\b(?:charming|subtle|broad|delicate|oriental|pleasing|striking|beautiful|lovely|nice|pleasant|dramatic|wonderful)\s+effects?\b'
+      action: verify
+
+- id: V-etc
+  ref: "Ch. V: Etc."
+  section: V
+  title: '"Etc." - not after "such as" / "for example"; not where the reader would be left in doubt.'
+  name_zh: etc. 不能接在 such as / for example 列举之后，也别用来含糊带过
+  severity: medium
+  status: active
+  scope: sentence
+  description: >-
+    Etc. means "and the rest, and so forth"; do not use it if one of these would
+    be insufficient, i.e. if the reader would be left in doubt about any important
+    particulars. It is least open to objection for the last terms of a list
+    already given in full, or immaterial words at the end of a quotation. At the
+    end of a list introduced by "such as", "for example" or a similar expression,
+    etc. is incorrect. Not to be used of persons.
+  violations:
+    - '"such as A, B, etc." / "for example A, B, etc." / "e.g. A, B, etc." / "including A, B, etc."'
+    - '"etc." standing for important, unstated particulars, or used of persons.'
+  triggers:
+    - pattern: '\b(?:such\s+as|for\s+example|for\s+instance|e\.\s?g\.|including|like)\b[^.!?;]{0,150}?\betc\b'
+      action: report
+      message: After "such as / for example", etc. is incorrect - the list is already marked as incomplete.
+      suggestion: drop "etc."
+    - pattern: '\betc\b'
+      action: verify
+      exclude: '\b(?:such\s+as|for\s+example|for\s+instance|e\.\s?g\.|including)\b[^.!?;]{0,150}?\betc\b'
+
+- id: V-fact
+  ref: "Ch. V: Fact"
+  section: V
+  title: '"Fact" - only for matters capable of direct verification, not for matters of judgment.'
+  name_zh: fact 只用于可验证的事实，不用于判断
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    That an event happened on a given date, that lead melts at a certain
+    temperature, are facts. Conclusions such as that Napoleon was the greatest of
+    modern generals, or that the climate of California is delightful, are not
+    properly facts.
+  violations:
+    - Calling an opinion, judgment or evaluation a fact ("It is a fact that this is the best book of the decade.").
+  not_violations:
+    - '"the fact that" (handled by Rule 13). "in fact". Verifiable facts.'
+  triggers:
+    - pattern: '(?<!in )\bfacts?\b(?!\s+that\b)'
+      action: verify
+
+- id: V-factor
+  ref: "Ch. V: Factor"
+  section: V
+  title: '"Factor" is hackneyed; replace the expression with something more direct.'
+  name_zh: factor 是陈词滥调，换更直接的说法
+  severity: low
+  status: active
+  scope: sentence
+  description: A hackneyed word; the expressions of which it forms part can usually be replaced by something more direct and idiomatic.
+  violations:
+    - '"His superior training was the great factor in his winning the match." -> "He won the match by being better trained."'
+  not_violations:
+    - Mathematical or scientific factors (prime factor, risk factor as a defined term, factor analysis).
+  triggers:
+    - pattern: '\bfactors?\b'
+      action: verify
+
+- id: V-feature
+  ref: "Ch. V: Feature"
+  section: V
+  title: '"Feature" is hackneyed and usually adds nothing; avoid the verb in the advertising sense.'
+  name_zh: feature 多半空洞；别用作广告式动词
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    Like "factor", it usually adds nothing to the sentence. As a verb in the
+    advertising sense of "offer as a special attraction", to be avoided.
+  violations:
+    - '"A feature of the entertainment especially worthy of mention was the singing of Miss A." -> tell what or how she sang.'
+    - '"The restaurant features live music." (advertising verb)'
+  not_violations:
+    - Technical uses (a software feature, a geographic feature, features in machine learning).
+  triggers:
+    - pattern: '\bfeatur(?:e|es|ed|ing)\b'
+      action: verify
+
+- id: V-fix
+  ref: "Ch. V: Fix"
+  section: V
+  title: '"Fix" is colloquial for arrange, prepare, mend.'
+  name_zh: fix 表示安排/准备/修理是口语
+  severity: low
+  status: outdated
+  modern_note: '"Fix" meaning "repair" is standard modern English.'
+  scope: sentence
+  description: In writing restrict it to its literary senses, "fasten, make firm or immovable".
+  triggers:
+    - pattern: '\bfix(?:es|ed|ing)?\b'
+      action: verify
+
+- id: V-get
+  ref: "Ch. V: Get"
+  section: V
+  title: 'Do not use the colloquial "have got" for "have".'
+  name_zh: 书面语不用 have got 代替 have
+  severity: low
+  status: active
+  modern_note: Strunk also prefers the participle "got" to "gotten"; "gotten" is standard American English, so it is not checked.
+  scope: sentence
+  description: The colloquial "have got" meaning "have/possess" should not be used in writing.
+  violations:
+    - '"I have got two brothers." -> "I have two brothers."'
+  not_violations:
+    - '"have got" meaning "have obtained/become" ("She has got much stronger"). "have got to" (obligation) is also colloquial but report it with low confidence.'
+  triggers:
+    - pattern: '\b(?:have|has|had|''ve|''s)\s+got\b'
+      action: verify
+
+- id: V-he-is-a-man-who
+  ref: "Ch. V: He is a man who"
+  section: V
+  title: '"He is a man who" - a common type of redundant expression.'
+  name_zh: He is a man who 是冗余句式
+  severity: medium
+  status: active
+  scope: sentence
+  description: See Rule 13. "He is a man who is very ambitious." -> "He is very ambitious."
+  violations:
+    - '"He is a man who ...", "Spain is a country which I have always wanted to visit." -> "I have always wanted to visit Spain."'
+  triggers:
+    - pattern: '\b(?:he|she|it|this|that|they)\s+(?:is|was|are|were)\s+an?\s+(?:\w+\s+){0,2}(?:man|woman|person|people|country|city|place|subject|thing|matter|book|story)\s+(?:who|which|that|whom)\b'
+      action: verify
+    - pattern: '\b[A-Z][a-z]+\s+(?:is|was)\s+a\s+(?:country|city|place|town|man|woman)\s+(?:which|that|who)\b'
+      case_sensitive: true
+      action: verify
+
+- id: V-however
+  ref: "Ch. V: However"
+  section: V
+  title: '"However" meaning "nevertheless" should not come first in its sentence or clause.'
+  name_zh: 表示“然而”的 however 不放句首
+  severity: low
+  status: active
+  modern_note: Many modern editors accept sentence-initial "However,".
+  scope: sentence
+  description: >-
+    When "however" comes first it means "in whatever way" or "to whatever extent"
+    ("However you advise him, he will..."). In the sense "nevertheless", move it
+    inside the clause ("At last, however, we succeeded").
+  examples:
+    - { bad: "The roads were almost impassable. However, we at last succeeded in reaching camp.", good: "The roads were almost impassable. At last, however, we succeeded in reaching camp." }
+  triggers:
+    - pattern: '^\W*However\s*,'
+      case_sensitive: true
+      action: report
+      suggestion: move "however" inside the sentence ("At last, however, ...")
+    - pattern: ';\s*however\s*,'
+      action: report
+      suggestion: move "however" after the first words of the clause
+
+- id: V-interesting
+  ref: "Ch. V: Interesting"
+  section: V
+  title: 'Avoid "interesting" as a perfunctory introduction - make it interesting instead.'
+  name_zh: 别用 interesting 作敷衍的开场
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    Instead of announcing that what you are about to tell is interesting, make it
+    so. "An interesting story is told of..." -> tell the story without preamble.
+  violations:
+    - '"An interesting story is told of ...", "It is interesting to note/recall that ...", "Interestingly, ..."'
+  not_violations:
+    - '"interesting" as a real evaluation after the thing has been described.'
+  triggers:
+    - pattern: '\binteresting(?:ly)?\b'
+      action: verify
+
+- id: V-kind-of
+  ref: "Ch. V: Kind of / Sort of"
+  section: V
+  title: '"Kind of" / "sort of" - only in the literal sense, not for "rather" or "something like".'
+  name_zh: kind of / sort of 不当 rather 用
+  severity: medium
+  status: active
+  scope: sentence
+  description: >-
+    Not a substitute for "rather" (before adjectives and verbs), nor - except in
+    familiar style - for "something like" (before nouns). Literal sense only:
+    "Amber is a kind of fossil resin"; "I dislike that kind of notoriety".
+  violations:
+    - '"kind of tired", "sort of agreed", "a kind of a ...".'
+  triggers:
+    - pattern: '\b(?:kind|sort)\s+of\s+(?!the\b|these\b|those\b|this\b|that\b)[a-z]+'
+      action: verify
+
+- id: V-less
+  ref: "Ch. V: Less"
+  section: V
+  title: '"Less" should not be misused for "fewer".'
+  name_zh: 可数名词用 fewer，不用 less
+  severity: medium
+  status: active
+  scope: sentence
+  description: >-
+    Less refers to quantity, fewer to number ("He had fewer men"). Correct:
+    "The signers of the petition were less than a hundred" (round number thought
+    of as an amount).
+  violations:
+    - '"less" with a plural countable noun ("less men", "less mistakes", "less people").'
+  triggers:
+    - pattern: '\bless\s+(?:people|men|women|children|students|cars|items|books|mistakes|errors|problems|words|cases|hours|days|years|dollars|calories|options|steps|members|employees)\b'
+      action: report
+      suggestion: fewer
+    - pattern: '\bless\s+(?!than\b)(?:[a-z]+\s+)?[a-z]+s\b'
+      action: verify
+
+- id: V-like
+  ref: "Ch. V: Like"
+  section: V
+  title: '"Like" governs nouns and pronouns; before phrases and clauses use "as".'
+  name_zh: like 后接名词；接分句或短语要用 as
+  severity: medium
+  status: active
+  scope: sentence
+  description: '"He thought as I did (like me)"; "We spent the evening as in the old days".'
+  violations:
+    - '"like" introducing a clause ("He thought like I did."; "It looks like it will rain.").'
+    - '"like" before a prepositional phrase ("like in the old days").'
+  triggers:
+    - pattern: '\blike\s+(?:I|we|he|she|they|you|it)\s+(?:\w+\s+)?(?:did|do|does|said|say|says|thought|think|was|were|am|is|are|had|have|has|would|will|could|can|should)\b'
+      action: verify
+    - pattern: '\blike\s+(?:in|when|if|before|after|at|on)\s+(?:the|a|an|my|his|her|our|their)\b'
+      action: verify
+
+- id: V-line
+  ref: "Ch. V: Line, along these lines"
+  section: V
+  title: '"Along these lines" is overworked; discard it.'
+  name_zh: along these lines 用滥了，别用
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    "Line" in the sense of course of procedure, conduct, thought is allowable but
+    so overworked, particularly in "along these lines", that a writer aiming at
+    freshness should discard it.
+  examples:
+    - { bad: "Mr. B. also spoke along the same lines.", good: "Mr. B. also spoke, to the same effect." }
+    - { bad: "He is studying along the line of French literature.", good: "He is studying French literature." }
+  triggers:
+    - pattern: '\balong\s+(?:these|the\s+same|this|similar|those|the\s+following)\s+lines?\b'
+      action: report
+      suggestion: to the same effect / (recast)
+    - pattern: '\balong\s+the\s+lines?\s+of\b'
+      action: report
+      suggestion: (recast)
+
+- id: V-literally
+  ref: "Ch. V: Literal, literally"
+  section: V
+  title: '"Literal(ly)" - not in support of exaggeration or violent metaphor.'
+  name_zh: literally 不能用来夸张
+  severity: medium
+  status: active
+  scope: sentence
+  description: '"A literal flood of abuse" -> "A flood of abuse"; "Literally dead with fatigue" -> "Almost dead with fatigue".'
+  violations:
+    - '"literal(ly)" attached to a figurative or exaggerated statement.'
+  not_violations:
+    - Literal sense in contrast to figurative ("a literal translation").
+  triggers:
+    - pattern: '\bliteral(?:ly)?\b'
+      action: verify
+
+- id: V-lose-out
+  ref: "Ch. V: Lose out"
+  section: V
+  title: '"Lose out", "try out", "win out", "sign up", "register up" - weaker than the simple verb.'
+  name_zh: lose out / win out / sign up 等不如单个动词有力
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    Meant to be more emphatic than the simple verb, but less so because of its
+    commonness. Idiomatic combinations with a distinct meaning (find out, run out,
+    turn out, cheer up, dry up, make up) are fine.
+  triggers:
+    - pattern: '\b(?:lose|loses|lost|losing|win|wins|won|winning)\s+out\b'
+      action: report
+      suggestion: lose / win
+    - pattern: '\b(?:try|tries|tried|trying|sign|signs|signed|signing|register|registers|registered|registering)\s+(?:out|up)\b'
+      action: verify
+
+- id: V-most
+  ref: "Ch. V: Most"
+  section: V
+  title: '"Most" is not to be used for "almost".'
+  name_zh: most 不能代替 almost
+  severity: medium
+  status: active
+  scope: sentence
+  description: '"Most everybody" -> "Almost everybody"; "Most all the time" -> "Almost all the time".'
+  triggers:
+    - pattern: '\bmost\s+(?:every|everybody|everyone|everything|everywhere|all|always|anybody|anyone|anything|anywhere|nobody|none)\b'
+      action: report
+      suggestion: almost
+
+- id: V-nature
+  ref: "Ch. V: Nature"
+  section: V
+  title: '"Nature" is often redundant, like "character", and often vague.'
+  name_zh: of a ... nature 多余；nature 含义模糊
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    "Acts of a hostile nature" -> "Hostile acts". Also vague in "lover of
+    nature", "poems about nature" unless more specific statements follow.
+  triggers:
+    - pattern: '\bof\s+(?:an?|such\s+an?|this|that|the\s+same)\s+(?:\w+\s+){0,2}nature\b'
+      action: verify
+    - pattern: '\b(?:lovers?|love|poems?|poetry|poets?)\s+(?:of|about)\s+nature\b'
+      action: verify
+
+- id: V-near-by
+  ref: "Ch. V: Near by"
+  section: V
+  title: '"Near by" - prefer "near"; not as an adjective (use "neighboring").'
+  name_zh: near by 少用，不作形容词
+  severity: low
+  status: outdated
+  modern_note: '"Nearby" is now standard both as adverb and adjective.'
+  scope: sentence
+  description: '"Near" or "near at hand" is as good; as an adjective use "neighboring".'
+  triggers:
+    - pattern: '\bnear\s?by\b'
+      action: verify
+
+- id: V-oftentimes
+  ref: "Ch. V: Oftentimes, ofttimes"
+  section: V
+  title: '"Oftentimes", "ofttimes" are archaic; write "often".'
+  name_zh: oftentimes 已过时，用 often
+  severity: low
+  status: active
+  scope: sentence
+  description: Archaic forms, no longer in good use.
+  triggers:
+    - pattern: '\boft(?:en)?times\b'
+      action: report
+      suggestion: often
+
+- id: V-hundred-and
+  ref: "Ch. V: One hundred and one"
+  section: V
+  title: Retain the "and" in "one hundred and one" and similar expressions.
+  name_zh: one hundred and one 中保留 and
+  severity: low
+  status: active
+  modern_note: American usage often omits the "and".
+  scope: sentence
+  description: In accordance with the unvarying usage of English prose.
+  triggers:
+    - pattern: '\b(?:one|two|three|four|five|six|seven|eight|nine)\s+hundred\s+(?!and\b)(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\b'
+      action: report
+      suggestion: one hundred and ...
+
+- id: V-one-of-the-most
+  ref: "Ch. V: One of the most"
+  section: V
+  title: 'Do not begin essays or paragraphs with "one of the most"; after it, the relative clause takes a plural verb.'
+  name_zh: 段首别用 one of the most；其后定语从句用复数动词
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    Beginning an essay or paragraph with this formula is threadbare and
+    forcible-feeble ("Switzerland is one of the most interesting countries of
+    Europe."). A common blunder is a singular verb in the following relative
+    clause when the relative is its subject ("One of the ablest men that has
+    attacked this problem" -> "that have attacked").
+  triggers:
+    - pattern: '\bone\s+of\s+the\s+most\b'
+      action: report
+      first_sentence_only: true
+      message: Threadbare opening formula.
+      suggestion: (open with the specific point)
+    - pattern: '\bone\s+of\s+the\s+(?:\w+\s+){1,3}(?:that|who|which)\s+(?:has|is|was|does)\b'
+      action: verify
+
+- id: V-participle-gerund
+  ref: "Ch. V: Participle for verbal noun"
+  section: V
+  title: Use the possessive before a verbal noun (gerund), not the objective case.
+  name_zh: 动名词前用所有格（my asking 而非 me asking）
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    "Do you mind my asking a question?"; "There was little prospect of the
+    Senate's accepting even this compromise." Where the possessive is awkward or
+    impossible, recast the sentence.
+  violations:
+    - '"mind me asking", "prospect of the Senate accepting", "dissatisfaction with the decision of the arbitrators being favorable".'
+  not_violations:
+    - Cases where the person rather than the action is the object ("I cannot imagine Lincoln refusing his assent" - acceptable, though the possessive is safer; report with low confidence).
+  triggers:
+    - pattern: '\b(?:[Mm]ind|[Oo]f|[Aa]bout|[Ff]or|[Ww]ithout|[Dd]espite|[Uu]pon|[Oo]n)\s+(?:me|him|them|us|you|the\s+[A-Z][a-z]+|[A-Z][a-z]+)\s+[a-z]+ing\b'
+      case_sensitive: true
+      action: verify
+
+- id: V-people
+  ref: "Ch. V: People"
+  section: V
+  title: '"The people" is a political term; do not confuse it with "the public".'
+  name_zh: the people（政治概念）与 the public（公众/顾客）区分
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    From the people comes political support or opposition; from the public comes
+    artistic appreciation or commercial patronage.
+  violations:
+    - '"the people" used for audiences, readers, customers ("The play was warmly received by the people.").'
+  triggers:
+    - pattern: '\bthe\s+people\b'
+      action: verify
+
+- id: V-phase
+  ref: "Ch. V: Phase"
+  section: V
+  title: '"Phase" means a stage of transition or development; not "aspect" or "topic".'
+  name_zh: phase 指阶段，不指方面
+  severity: low
+  status: active
+  scope: sentence
+  description: '"Another phase of the subject" -> "Another point (another question)".'
+  triggers:
+    - pattern: '\bphases?\b'
+      action: verify
+
+- id: V-possess
+  ref: "Ch. V: Possess"
+  section: V
+  title: '"Possess" is not a mere substitute for "have" or "own".'
+  name_zh: possess 不要代替 have / own
+  severity: low
+  status: active
+  scope: sentence
+  description: '"He possessed great courage." -> "He had great courage (was very brave)."; "He was the fortunate possessor of" -> "He owned".'
+  triggers:
+    - pattern: '\bpossess(?:es|ed|ing|or|ors)?\b'
+      action: verify
+
+- id: V-prove
+  ref: "Ch. V: Prove"
+  section: V
+  title: 'The past participle of "prove" is "proved".'
+  name_zh: prove 的过去分词是 proved
+  severity: low
+  status: outdated
+  modern_note: '"Proven" is accepted, especially as an adjective ("a proven method").'
+  scope: sentence
+  description: Use "proved", not "proven".
+  triggers:
+    - pattern: '\bproven\b'
+      action: report
+      suggestion: proved
+
+- id: V-respectively
+  ref: "Ch. V: Respective, respectively"
+  section: V
+  title: '"Respective(ly)" may usually be omitted with advantage.'
+  name_zh: respective(ly) 多半可以删掉
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    "Works of fiction are listed under the names of their respective authors" ->
+    "their authors". Acceptable only in formal writing such as geometrical proofs.
+  triggers:
+    - pattern: '\brespective(?:ly)?\b'
+      action: verify
+
+- id: V-shall-will
+  ref: "Ch. V: Shall, Will"
+  section: V
+  title: Simple future takes "shall" in the first person, "will" in the second and third.
+  name_zh: 第一人称单纯将来用 shall
+  severity: low
+  status: outdated
+  modern_note: The shall/will distinction has largely disappeared from modern English.
+  scope: sentence
+  description: '"I shall" expresses the speaker''s belief about his future action; "I will" expresses determination or consent.'
+  triggers:
+    - pattern: '\b(?:I|we)\s+will\b'
+      case_sensitive: true
+      action: verify
+
+- id: V-so
+  ref: "Ch. V: So"
+  section: V
+  title: 'Avoid "so" as an intensifier ("so good", "so warm").'
+  name_zh: 书面语别用 so 加强语气
+  severity: low
+  status: active
+  scope: sentence
+  description: '"so" as an intensifier: "so good", "so warm", "so delightful". (On "so" introducing clauses see Rule 4.)'
+  not_violations:
+    - '"so ... that" / "so ... as" result or comparison clauses ("so warm that we swam").'
+  triggers:
+    - pattern: '\bso\s+(?:very\s+)?(?:good|warm|delightful|nice|beautiful|wonderful|great|bad|happy|sad|tired|lovely|kind|important|interesting|exciting|amazing|terrible|awful|funny|pretty|hard|easy|big|small|cold|hot|glad|sorry|grateful|proud|excited|special)\b(?![^.!?;]{0,40}\b(?:that|as)\b)'
+      action: verify
+
+- id: V-split-infinitive
+  ref: "Ch. V: Split Infinitive"
+  section: V
+  title: Do not put an adverb between "to" and the infinitive.
+  name_zh: 避免分裂不定式
+  severity: low
+  status: outdated
+  modern_note: Most modern style guides accept split infinitives where they read naturally.
+  scope: sentence
+  description: '"To diligently inquire" -> "To inquire diligently".'
+  triggers:
+    - pattern: '\bto\s+(?!(?:apply|reply|supply|rely|ally|fly|imply|comply|multiply|bully|tally|rally|early|really|family|italy)\b)[a-z]+ly\s+[a-z]+'
+      action: verify
+
+- id: V-state
+  ref: "Ch. V: State"
+  section: V
+  title: '"State" is not a mere substitute for "say", "remark".'
+  name_zh: state 不要当 say 用
+  severity: low
+  status: active
+  scope: sentence
+  description: 'Restrict it to "express fully or clearly" ("He refused to state his objections").'
+  triggers:
+    - pattern: '\bstat(?:e|es|ed|ing)\s+that\b'
+      action: verify
+    - pattern: '\b(?:he|she|they|I|we)\s+stated\b'
+      action: verify
+
+- id: V-student-body
+  ref: "Ch. V: Student Body"
+  section: V
+  title: '"Student body" is needless and awkward; say "students".'
+  name_zh: student body → students
+  severity: low
+  status: active
+  scope: sentence
+  description: '"A member of the student body" -> "A student"; "The student body passed resolutions" -> "The students passed resolutions".'
+  triggers:
+    - pattern: '\bstudent\s+bod(?:y|ies)\b'
+      action: report
+      suggestion: students
+
+- id: V-system
+  ref: "Ch. V: System"
+  section: V
+  title: '"System" is frequently used without need.'
+  name_zh: system 常常可以省掉
+  severity: low
+  status: active
+  scope: sentence
+  description: '"Dayton has adopted the commission system of government" -> "government by commission"; "The dormitory system" -> "Dormitories".'
+  not_violations:
+    - Technical systems where the word names a real system (operating system, nervous system, a software system).
+  triggers:
+    - pattern: '\bsystems?\b'
+      action: verify
+
+- id: V-thanking-in-advance
+  ref: "Ch. V: Thanking You in Advance"
+  section: V
+  title: 'Avoid "Thanking you in advance".'
+  name_zh: 不要写 Thanking you in advance
+  severity: low
+  status: active
+  scope: sentence
+  description: 'It sounds as if the writer would not bother to write again. Write "Will you please" or "I shall be obliged", and acknowledge later.'
+  triggers:
+    - pattern: '\bthank(?:ing|s)?\s+(?:you\s+)?in\s+advance\b'
+      action: report
+      suggestion: Will you please ... / I shall be obliged ...
+
+- id: V-they
+  ref: "Ch. V: They"
+  section: V
+  title: 'Do not use "they" with a distributive antecedent (each, everybody, anybody, someone...).'
+  name_zh: each/everybody 等不用 they 指代（原书要求）
+  severity: low
+  status: outdated
+  modern_note: Singular "they" is accepted by modern style guides (APA, Chicago, AP); Strunk's "use he" is no longer recommended.
+  scope: sentence
+  description: 'Strunk: use "he" with each, each one, everybody, every one, many a man, anybody, somebody, unless the antecedent is or must be feminine.'
+  triggers:
+    - pattern: '\b(?:each|everybody|everyone|every\s+one|anybody|anyone|any\s+one|somebody|someone|some\s+one|nobody|no\s+one|many\s+a)\b[^.!?]*\b(?:they|their|them|themselves|theirs)\b'
+      action: verify
+
+- id: V-very
+  ref: "Ch. V: Very"
+  section: V
+  title: '"Very" - use sparingly; where emphasis is needed, use words strong in themselves.'
+  name_zh: 少用 very，用本身有力的词
+  severity: low
+  status: active
+  scope: sentence
+  description: Use this word sparingly. Where emphasis is necessary, use words strong in themselves.
+  violations:
+    - '"very + weak word" where one strong word exists (very big -> huge, very tired -> exhausted, very important -> crucial).'
+    - Several "very"s close together.
+  not_violations:
+    - '"the very same", "the very end" (very as an adjective). Technical precision ("very low frequency").'
+  triggers:
+    - pattern: '\bvery\s+[a-z]+'
+      action: verify
+      exclude: '\bthe\s+very\s+(?:same|end|beginning|first|last|thing|idea|moment|man|least|best)\b'
+
+- id: V-viewpoint
+  ref: "Ch. V: Viewpoint"
+  section: V
+  title: 'Write "point of view", and do not misuse it for "view" or "opinion".'
+  name_zh: 用 point of view，且不要当 opinion 用
+  severity: low
+  status: active
+  modern_note: '"Viewpoint" itself is standard modern English; only the misuse for "opinion" is checked by the model.'
+  scope: sentence
+  description: '"Point of view" means a position from which something is regarded; it is not a synonym for view or opinion.'
+  violations:
+    - '"point of view" / "viewpoint" used to mean an opinion ("My point of view is that the tax is unfair." -> "My view is ...").'
+  triggers:
+    - pattern: '\b(?:point\s+of\s+view|view\s?points?)\b'
+      action: verify
+
+- id: V-while
+  ref: "Ch. V: While"
+  section: V
+  title: '"While" - use it only in the sense "during the time that"; not as a loose substitute for and, but, although.'
+  name_zh: while 只表示“在……期间”，别当 and/but/although 乱用
+  severity: low
+  status: active
+  scope: sentence
+  description: >-
+    Many writers use "while" for "and" or "but" just to vary the connective - best
+    replaced by a semicolon. As "although" it is allowable only where this leads
+    to no ambiguity or absurdity ("While I admire his energy, I wish..." is
+    fine; "While the temperature reaches 90 degrees in the daytime, the nights
+    are often chilly" is not).
+  examples:
+    - { bad: "The office and salesrooms are on the ground floor, while the rest of the building is devoted to manufacturing.", good: "The office and salesrooms are on the ground floor; the rest of the building is devoted to manufacturing." }
+  triggers:
+    - pattern: '\bwhile\b'
+      action: verify
+
+- id: V-whom
+  ref: "Ch. V: Whom"
+  section: V
+  title: 'Use "who", not "whom", for the subject of a verb after "he said" and similar insertions.'
+  name_zh: he said 类插入语后作主语用 who，不用 whom
+  severity: medium
+  status: active
+  scope: sentence
+  description: '"His brother, whom he said would send him the money" -> "who he said would send".'
+  triggers:
+    - pattern: '\bwhom\s+(?:\w+\s+){0,2}(?:said|says|thought|thinks|believed|believes|knew|knows|felt|feels|supposed|expected|hoped|claimed|claims|imagined|assumed|suspected)\s+(?:was|were|is|are|would|will|could|can|should|had|has|have|did|does|might|must)\b'
+      action: report
+      suggestion: who
+
+- id: V-worth-while
+  ref: "Ch. V: Worth while"
+  section: V
+  title: '"Worth while" is overworked as vague approval; strictly applies only to actions.'
+  name_zh: worth while 不要当空泛的褒贬词
+  severity: low
+  status: active
+  modern_note: '"Worthwhile" before a noun is now standard; only vague approval/disapproval is checked.'
+  scope: sentence
+  description: '"His books are not worth while." -> "not worth reading". Strictly applicable only to actions ("Is it worth while to telegraph?").'
+  triggers:
+    - pattern: '\bworth\s?while\b'
+      action: verify
+
+- id: V-would
+  ref: "Ch. V: Would"
+  section: V
+  title: 'For habitual action the simple past is usually better than "would".'
+  name_zh: 表示过去习惯时用一般过去时代替 would
+  severity: low
+  status: active
+  scope: sentence
+  description: '"Once a year he would visit the old mansion." -> "Once a year he visited the old mansion."'
+  triggers:
+    - pattern: '\b(?:once|twice|every|each)\s+(?:a\s+)?(?:\w+\s+){0,2}(?:he|she|they|we|I|it)\s+would\s+[a-z]+'
+      action: verify
+    - pattern: '\bwould\s+(?:often|usually|always|sometimes|regularly|frequently)\s+[a-z]+'
+      action: verify
+
+- id: V-should-would
+  ref: "Ch. V: Would / Should"
+  section: V
+  title: 'A conditional statement in the first person requires "should", not "would".'
+  name_zh: 第一人称条件句用 should
+  severity: low
+  status: outdated
+  modern_note: '"I would" is standard modern usage in conditional statements.'
+  scope: sentence
+  description: '"I should not have succeeded without his help." Also "shall" in indirect quotation after a past verb becomes "should".'
+  triggers:
+    - pattern: '\b(?:I|we)\s+would\b'
+      case_sensitive: true
+      action: verify
+
+# =============================================================================
+# VI. SPELLING
+# =============================================================================
+
+- id: VI-01
+  ref: "Ch. VI: Words often misspelled"
+  section: VI
+  title: Spell correctly the words often misspelled (Strunk's list) and do not confuse look-alikes.
+  name_zh: 常见拼错的词及易混词
+  severity: high
+  status: active
+  scope: sentence
+  description: >-
+    Strunk's list of words often misspelled: accidentally, advice, affect,
+    believe, benefit, challenge, coarse, course, criticize, deceive, definite,
+    describe, despise, develop, disappoint, dissipate, duel, ecstasy, effect,
+    embarrass, existence, fascinate, fiery, formerly, humorous, hypocrisy,
+    immediately, impostor, incident, incidentally, latter, led, lose, marriage,
+    mischief, murmur, necessary, occurred, opportunity, parallel, Philip,
+    playwright, preceding, prejudice, principal, principle, privilege, pursue,
+    repetition, rhyme, rhythm, ridiculous, sacrilegious, seize, separate,
+    shepherd, siege, similar, simile, too, tragedy, tries, undoubtedly, until,
+    villain. Several are confused with look-alikes (advice/advise,
+    coarse/course, lose/loose, led/lead, principal/principle, latter/later,
+    formerly/formally, duel/dual, too/to).
+  violations:
+    - A misspelling of a listed word, or the wrong member of a look-alike pair for the meaning intended.
+  misspellings:
+    accidently: accidentally
+    accidentaly: accidentally
+    acidentally: accidentally
+    beleive: believe
+    belive: believe
+    beleived: believed
+    benifit: benefit
+    benifits: benefits
+    challange: challenge
+    chalenge: challenge
+    critisize: criticize
+    critizise: criticize
+    decieve: deceive
+    decieved: deceived
+    definate: definite
+    definately: definitely
+    definitly: definitely
+    defenite: definite
+    discribe: describe
+    discription: description
+    dispise: despise
+    develope: develop
+    developement: development
+    dissapoint: disappoint
+    disapoint: disappoint
+    dissappoint: disappoint
+    dissapointed: disappointed
+    disapointed: disappointed
+    disipate: dissipate
+    dissapate: dissipate
+    ecstacy: ecstasy
+    extacy: ecstasy
+    embarass: embarrass
+    embarassed: embarrassed
+    embarassing: embarrassing
+    embarrased: embarrassed
+    embarassment: embarrassment
+    existance: existence
+    existense: existence
+    fasinate: fascinate
+    facinate: fascinate
+    facinating: fascinating
+    fasinating: fascinating
+    firey: fiery
+    humourous: humorous
+    humerous: humorous
+    hypocracy: hypocrisy
+    hipocrisy: hypocrisy
+    hypocrasy: hypocrisy
+    immediatly: immediately
+    imediately: immediately
+    immediatley: immediately
+    imposter: impostor
+    incidently: incidentally
+    incedent: incident
+    marraige: marriage
+    mariage: marriage
+    mischeif: mischief
+    murmer: murmur
+    neccessary: necessary
+    necesary: necessary
+    neccesary: necessary
+    necessery: necessary
+    occured: occurred
+    ocurred: occurred
+    occurence: occurrence
+    occurrance: occurrence
+    oppurtunity: opportunity
+    oportunity: opportunity
+    paralell: parallel
+    parrallel: parallel
+    parralel: parallel
+    paralel: parallel
+    playwrite: playwright
+    preceeding: preceding
+    preceed: precede
+    predjudice: prejudice
+    prejudise: prejudice
+    priviledge: privilege
+    privelege: privilege
+    privilage: privilege
+    persue: pursue
+    persued: pursued
+    repitition: repetition
+    repetion: repetition
+    rythm: rhythm
+    rhythym: rhythm
+    rythym: rhythm
+    rediculous: ridiculous
+    sacreligious: sacrilegious
+    sieze: seize
+    siezed: seized
+    seperate: separate
+    seperately: separately
+    seperated: separated
+    seperation: separation
+    shepard: shepherd
+    seige: siege
+    similiar: similar
+    simular: similar
+    similer: similar
+    tradgedy: tragedy
+    trys: tries
+    undoubtably: undoubtedly
+    undoubtly: undoubtedly
+    untill: until
+    villian: villain
+    villan: villain
+  triggers:
+    - pattern: '\bloos(?:e|ing)\b'
+      action: verify
+    - pattern: '\b(?:has|have|had)\s+lead\b|\b(?:was|were)\s+lead\s+by\b'
+      action: report
+      suggestion: led
+    - pattern: '\b(?:in|on|of|a\s+matter\s+of)\s+principal\b'
+      action: verify
+    - pattern: '\bprinciple\s+(?:reason|cause|investigator|component|source|aim|goal|author|actor|character|role|means|factor|part|city|sum|amount|difference)\b'
+      action: verify
+    - pattern: '\bof\s+coarse\b'
+      action: report
+      suggestion: of course
+    - pattern: '\b(?:my|his|her|your|their|our|some|any|good|bad|sound|expert|legal|medical|professional)\s+advise\b'
+      action: report
+      suggestion: advice
+    - pattern: '\b(?:to|would|will|can|could|should|must|I|we|they)\s+advice\b'
+      action: report
+      suggestion: advise
+    - pattern: '\bthe\s+former\b[^.!?]*\bthe\s+later\b'
+      action: report
+      suggestion: the latter
+    - pattern: '\bduel\s+(?:role|purpose|nature|citizenship|degree|mode|use|function|carriageway)\b'
+      action: report
+      suggestion: dual
+    - pattern: '\bformally\s+(?:known|called|named)\b'
+      action: verify
+    - pattern: '\b(?:is|was|are|were|be|been|far|much|way)\s+to\s+(?:much|many|late|early|long|big|small|often|soon|little|few|bad|good|difficult|hard|easy|high|low)\b'
+      action: verify
+
+- id: VI-02
+  ref: "Ch. VI: Doubling before -ed / -ing"
+  section: VI
+  title: A single consonant after a stressed short vowel is doubled before -ed and -ing (planned, letting, beginning; coming is an exception).
+  name_zh: 重读短元音后的单辅音在 -ed/-ing 前双写
+  severity: high
+  status: active
+  scope: sentence
+  description: planned, letting, beginning, referring, occurred; but coming.
+  misspellings:
+    begining: beginning
+    beginer: beginner
+    occuring: occurring
+    refering: referring
+    refered: referred
+    prefered: preferred
+    prefering: preferring
+    transfered: transferred
+    transfering: transferring
+    comitted: committed
+    commited: committed
+    comitting: committing
+    commiting: committing
+    admited: admitted
+    admiting: admitting
+    permited: permitted
+    submited: submitted
+    omited: omitted
+    controled: controlled
+    controling: controlling
+    stoped: stopped
+    stoping: stopping
+    droped: dropped
+    shiped: shipped
+    leting: letting
+    geting: getting
+    puting: putting
+    runing: running
+    swiming: swimming
+    forgeting: forgetting
+    regreted: regretted
+    equiped: equipped
+    comming: coming
+
+- id: VI-03
+  ref: "Ch. VI: to-day, to-night, to-morrow"
+  section: VI
+  title: Write to-day, to-night, to-morrow (but not together) with a hyphen.
+  name_zh: to-day / to-night / to-morrow 加连字符（原书要求）
+  severity: low
+  status: outdated
+  modern_note: Modern English writes today, tonight, tomorrow.
+  scope: sentence
+  description: 1918 spelling convention.
+  triggers:
+    - pattern: '\b(?:today|tonight|tomorrow)\b'
+      action: report
+      suggestion: to-day / to-night / to-morrow
+
+- id: VI-04
+  ref: "Ch. VI: any one, every one, some one, some time"
+  section: VI
+  title: Write any one, every one, some one, some time (except in the sense of "formerly") as two words.
+  name_zh: any one / every one / some one 分写（原书要求）
+  severity: low
+  status: outdated
+  modern_note: Modern English writes anyone, everyone, someone as one word.
+  scope: sentence
+  description: 1918 spelling convention.
+  triggers:
+    - pattern: '\b(?:anyone|everyone|someone)\b'
+      action: report
+      suggestion: any one / every one / some one
